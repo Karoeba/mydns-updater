@@ -3,7 +3,7 @@ set -eu
 mkdir -p /app /state /tmp/mock /tmp/test-bin
 # These paths exist only inside this dedicated disposable test container.
 rm -f /state/state.conf /tmp/mock/* /tmp/test-bin/*
-cp /suite/update.sh /app/update.sh
+cp /source/update.sh /app/update.sh
 cp /suite/mock-curl.sh /tmp/test-bin/curl
 cat > /tmp/test-bin/sleep <<'EOF'
 #!/bin/sh
