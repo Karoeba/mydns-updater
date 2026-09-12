@@ -1,15 +1,16 @@
 #!/bin/sh
 
-VERSION="1.1.1"
+VERSION="1.2.0"
 CONFIG="/app/mydns.conf"
 STATE_DIR="/state"
 STATE_FILE="$STATE_DIR/state.conf"
-TZ="JST-9"
+DEFAULT_TZ="Asia/Tokyo"
+TZ="$DEFAULT_TZ"
 export TZ
 umask 077
 
 log() {
-    printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S JST')" "$*"
+    printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$*"
 }
 
 WORK_DIR="$(mktemp -d)" || exit 1
@@ -68,11 +69,41 @@ read_interval() {
     VALUE="$(awk -v n="$VALUE" 'BEGIN { print n+0 }')"
 }
 
+# Accept installed zoneinfo names, not arbitrary paths or POSIX expressions.
+valid_timezone() {
+    case "$1" in
+        ''|/*|*..*|*[!A-Za-z0-9_+/-]*) return 1 ;;
+    esac
+    [ -f "/usr/share/zoneinfo/$1" ] &&
+        [ "$(dd if="/usr/share/zoneinfo/$1" bs=4 count=1 2>/dev/null)" = TZif ]
+}
+
+load_timezone() {
+    REQUESTED_TZ="$(get_value "$WORK_DIR/config" '' TZ)"
+    # Omission uses the default silently; an explicit empty value is invalid.
+    if ! awk '
+        /^\[/ { exit }
+        /^TZ=/ { found=1 }
+        END { exit !found }
+    ' "$WORK_DIR/config"; then
+        REQUESTED_TZ="$DEFAULT_TZ"
+    fi
+    if valid_timezone "$REQUESTED_TZ"; then
+        TZ="$REQUESTED_TZ"
+        export TZ
+    else
+        TZ="$DEFAULT_TZ"
+        export TZ
+        log "[CONFIG] Invalid TZ: using $DEFAULT_TZ"
+    fi
+}
+
 load_config() {
     cp "$CONFIG" "$WORK_DIR/config" || {
         log "[CONFIG] Cannot read configuration"
         return 1
     }
+    load_timezone
     # Restrict section names to unique numeric keys suitable for state storage.
     if ! awk '
         { sub(/\r$/, "") }
@@ -249,7 +280,7 @@ while true; do
     CHECK_INTERVAL=300
     if load_config; then
         if [ "$STARTUP_LOGGED" -eq 0 ]; then
-            log "[STARTUP] MyDNS updater v${VERSION} started: CHECK_INTERVAL=${CHECK_INTERVAL}s, FORCE_UPDATE_INTERVAL=${FORCE_UPDATE_INTERVAL}s"
+            log "[STARTUP] MyDNS updater v${VERSION} started: TZ=${TZ}, CHECK_INTERVAL=${CHECK_INTERVAL}s, FORCE_UPDATE_INTERVAL=${FORCE_UPDATE_INTERVAL}s"
             STARTUP_LOGGED=1
         fi
         run_cycle

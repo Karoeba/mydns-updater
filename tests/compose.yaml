@@ -1,6 +1,9 @@
 services:
   test:
-    image: alpine:latest
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    image: mydns-updater-test:local
     network_mode: none
     restart: "no"
     volumes:

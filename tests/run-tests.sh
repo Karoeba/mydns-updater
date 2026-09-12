@@ -16,6 +16,8 @@ cat > /tmp/test-bin/date <<'EOF'
 #!/bin/sh
 if [ "$#" -eq 1 ] && [ "$1" = +%s ]; then
     cat /tmp/mock/now
+elif [ -f /tmp/mock/display-epoch ]; then
+    exec /bin/date -d "@$(cat /tmp/mock/display-epoch)" "$@"
 else
     exec /bin/date "$@"
 fi
@@ -186,4 +188,63 @@ cmp /state/state.conf /tmp/before-state || fail 'failed save damaged previous st
 pass 'save failure stops before next account and preserves previous file'
 rm /tmp/mock/fail-save
 cp /state/state.conf /reports/final.state.conf
+
+# Freeze displayed dates independently of the scheduling clock.
+echo 203.0.113.30 > /tmp/mock/ip
+echo 1705320000 > /tmp/mock/display-epoch
+timezone_config() {
+    config
+    { printf 'TZ=%s\n' "$1"; cat /app/mydns.conf; } > /tmp/config
+    cp /tmp/config /app/mydns.conf
+}
+expect_log() { grep -Fq "$1" /tmp/cycle.log || fail "missing log: $1"; }
+
+config
+cycle
+expect_log '2024-01-15 21:00:00 JST [STARTUP]'
+expect_log 'TZ=Asia/Tokyo'
+if grep -q 'Invalid TZ' /tmp/cycle.log; then fail 'omission warned'; fi
+pass 'omitted timezone defaults to Tokyo'
+timezone_config Asia/Tokyo
+cycle
+expect_log '2024-01-15 21:00:00 JST [STARTUP]'
+pass 'explicit Tokyo timezone'
+cp /state/state.conf /tmp/timezone-before
+timezone_config UTC
+cycle
+expect_log '2024-01-15 12:00:00 UTC [STARTUP]'
+eq "$(updates)" ''
+cmp /state/state.conf /tmp/timezone-before || fail 'timezone changed saved state'
+pass 'UTC display changes without changing saved timestamps or update decision'
+timezone_config America/New_York
+cycle
+expect_log '2024-01-15 07:00:00 EST [STARTUP]'
+echo 1721044800 > /tmp/mock/display-epoch
+cycle
+expect_log '2024-07-15 08:00:00 EDT [STARTUP]'
+eq "$(updates)" ''
+pass 'New York winter and summer offsets and labels'
+echo 1705320000 > /tmp/mock/display-epoch
+for zone in '' Mars/Olympus ../etc/passwd /etc/passwd zone.tab Asia 'JST-9' 'UTC;exit'; do
+    timezone_config "$zone"
+    cycle
+    expect_log '2024-01-15 21:00:00 JST [CONFIG] Invalid TZ: using Asia/Tokyo'
+    expect_log 'TZ=Asia/Tokyo'
+done
+pass 'empty unknown and invalid timezone values fall back safely'
+timezone_config UTC
+awk '{printf "%s\r\n", $0}' /app/mydns.conf > /tmp/config
+cp /tmp/config /app/mydns.conf
+cycle
+expect_log '2024-01-15 12:00:00 UTC [STARTUP]'
+pass 'CRLF timezone configuration'
+# The epoch-based force interval remains active with another display timezone.
+awk '/^\[/{s=$0} s=="[2]" && /^LAST_UPDATE=/{ $0="LAST_UPDATE=1799900000" } {print}' \
+    /state/state.conf > /tmp/edited-state
+/bin/mv /tmp/edited-state /state/state.conf
+cycle
+eq "$(updates)" 'two,'
+eq "$(value 2 LAST_UPDATE)" "$(cat /tmp/mock/now)"
+pass 'force update keeps using UNIX seconds under UTC'
+
 echo "ALL TESTS PASSED ($COUNT checks)"

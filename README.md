@@ -32,6 +32,14 @@ docker compose logs -f
 
 Synology Container Managerでは、配置先をプロジェクトのパスにしてcompose.yamlを読み込み、構築・開始します。mydns.confとstateフォルダーは起動前に作成してください。
 
+## Timezone (v1.2.0)
+
+mydns.confの最初のアカウントセクションより前に `TZ=Asia/Tokyo` を指定します。省略時は日本時間です。`UTC` や `America/New_York` など、イメージに含まれるzoneinfo名を使用できます。空欄・存在しない名前・ファイルパス等の不正値は日本時間へ戻して警告します。POSIX形式のTZ式は受け付けません。
+
+設定は各確認周期で再読込します。ログの日時と略称（JST/UTC/EST/EDT等）は指定地域と夏時間に従います。起動ログには実効TZ名も表示します。LAST_UPDATEはUNIX時刻のままで、タイムゾーンを変えても定期更新の判定や保存形式は変わりません。TZを設定ファイルで省略した場合、コンテナ環境変数より既定のAsia/Tokyoが優先されます。
+
+v1.2.0は開発中です。1.1系の稼働環境をそのまま残し、実機検証は別環境で行ってください。本番Composeのイメージタグは1.2.xです。固定コンテナ名が同じため並列の実機検証では名前の変更が必要です。模擬テストは独立したtestサービスなので本番と共存できます。
+
 ## Configuration
 
 | 設定 | 既定値 | 範囲 |
@@ -85,10 +93,10 @@ GitHub側の一時的なUbuntu環境でAlpineコンテナを実行します。NA
 
 ```sh
 mkdir -p tests/reports
-docker compose -f tests/compose.yaml run --rm test
+docker compose -f tests/compose.yaml run --build --rm test
 ```
 
-外部通信を無効にしたAlpineコンテナで19項目の模擬テストを実行します。初回のイメージ取得には接続が必要です。成功時はALL TESTS PASSED (19 checks)を表示します。結果はtests/reportsに保存します。curl・時刻・待機・保存失敗を模擬し、1周期ずつ新しいプロセスで状態を再読込します。
+外部通信を無効にしたAlpineコンテナで26項目の模擬テストを実行します。初回のイメージ取得には接続が必要です。成功時はALL TESTS PASSED (26 checks)を表示します。結果はtests/reportsに保存します。curl・時刻・待機・保存失敗を模擬し、1周期ずつ新しいプロセスで状態を再読込します。
 
 DS1522+のContainer Managerで、v1.1.1と修正済みのテスト構成による19項目の合格を2026-09-13に確認しました。実アカウントでの通知成功、JSTログ、状態保存、コンテナ再作成後の状態保持も確認済みです。
 
@@ -128,6 +136,10 @@ Synologyで既存のmydns-updater-v110から移行する場合:
 今回の移行ではイメージ名が変わるため構築が必要です。その後update.shだけを差し替える場合は停止・差し替え・開始で反映できます。Dockerfileや依存ソフトを変更した場合は再構築してください。固定イメージタグだけでは稼働中のスクリプトの版を判別できません。
 
 ## Version
+
+### v1.2.0 (unreleased)
+- 設定ファイルでタイムゾーンを変更可能にし、夏時間と不正値の検証を追加。
+- テスト環境も本番Dockerfileから構築し、tzdataを使用。
 
 ### v1.1.1
 - 起動時に実際のバージョンと確認・強制更新間隔をJSTログへ表示。
