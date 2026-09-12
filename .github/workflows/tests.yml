@@ -1,0 +1,45 @@
+name: Docker tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Alpine mock tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Run mock tests
+        run: |
+          mkdir -p tests/reports
+          docker compose -f tests/compose.yaml config --quiet
+          docker compose -f tests/compose.yaml run --rm test
+          grep -Fxq 'ALL TESTS PASSED' tests/reports/result.txt
+
+      - name: Save test reports
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: test-reports
+          path: tests/reports/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Clean up test containers
+        if: always()
+        run: docker compose -f tests/compose.yaml down
