@@ -38,7 +38,7 @@ while true; do
 
     while IFS= read -r LINE || [ -n "$LINE" ]; do
 
-        # Windows‚ÌCRLF‚É‚à‘Î‰
+        # Windowsã®CRLFã«ã‚‚å¯¾å¿œ
         LINE="$(printf '%s' "$LINE" | sed 's/\r$//')"
 
         case "$LINE" in
