@@ -25,7 +25,7 @@ Synology Container Managerでも使用できます。
 リポジトリを取得します。
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Karoeba/mydns-updater.git
 cd mydns-updater
 ```
 
