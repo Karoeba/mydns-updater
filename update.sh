@@ -1,5 +1,6 @@
 #!/bin/sh
 
+VERSION="1.1.1"
 CONFIG="/app/mydns.conf"
 STATE_DIR="/state"
 STATE_FILE="$STATE_DIR/state.conf"
@@ -248,7 +249,7 @@ while true; do
     CHECK_INTERVAL=300
     if load_config; then
         if [ "$STARTUP_LOGGED" -eq 0 ]; then
-            log "[STARTUP] MyDNS updater started: CHECK_INTERVAL=${CHECK_INTERVAL}s, FORCE_UPDATE_INTERVAL=${FORCE_UPDATE_INTERVAL}s"
+            log "[STARTUP] MyDNS updater v${VERSION} started: CHECK_INTERVAL=${CHECK_INTERVAL}s, FORCE_UPDATE_INTERVAL=${FORCE_UPDATE_INTERVAL}s"
             STARTUP_LOGGED=1
         fi
         run_cycle
