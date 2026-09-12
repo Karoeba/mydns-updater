@@ -1,2 +1,6 @@
 mydns.conf
 .env
+state/*
+!state/.gitkeep
+tests/reports/*
+!tests/reports/.gitkeep

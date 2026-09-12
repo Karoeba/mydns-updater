@@ -1,5 +1,13 @@
-# Update interval in seconds
-INTERVAL=3600
+# IPv4 check interval in seconds: 60-86400 (default: 300)
+CHECK_INTERVAL=300
+
+# Force update interval in seconds: 3600-604800 (default: 86400)
+FORCE_UPDATE_INTERVAL=86400
+
+# Optional IPv4 check services. Empty/omitted values use these defaults.
+#IP_CHECK_URL1=https://api.ipify.org
+#IP_CHECK_URL2=https://checkip.amazonaws.com/
+#IP_CHECK_URL3=https://ipv4.ifconfig.me/ip
 
 [1]
 ID=your-master-id
