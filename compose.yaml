@@ -1,11 +1,10 @@
 services:
   mydns-updater:
     build: .
-    image: mydns-updater:latest
-    container_name: mydns-updater
+    image: mydns-updater:v1.1.0
     restart: unless-stopped
-
     volumes:
-      - ./:/app:ro
-
+      - ./update.sh:/app/update.sh:ro
+      - ./mydns.conf:/app/mydns.conf:ro
+      - ./state:/state
     command: ["sh", "/app/update.sh"]

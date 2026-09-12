@@ -1,0 +1,189 @@
+#!/bin/sh
+set -eu
+mkdir -p /app /state /tmp/mock /tmp/test-bin
+# These paths exist only inside this dedicated disposable test container.
+rm -f /state/state.conf /tmp/mock/* /tmp/test-bin/*
+cp /suite/update.sh /app/update.sh
+cp /suite/mock-curl.sh /tmp/test-bin/curl
+cat > /tmp/test-bin/sleep <<'EOF'
+#!/bin/sh
+# Finish one real main-loop iteration. Each scenario starts a fresh updater.
+echo "$1" > /tmp/mock/sleep
+kill -TERM "$PPID"
+exit 0
+EOF
+cat > /tmp/test-bin/date <<'EOF'
+#!/bin/sh
+if [ "$#" -eq 1 ] && [ "$1" = +%s ]; then
+    cat /tmp/mock/now
+else
+    exec /bin/date "$@"
+fi
+EOF
+cat > /tmp/test-bin/mv <<'EOF'
+#!/bin/sh
+[ ! -f /tmp/mock/fail-save ] || exit 1
+exec /bin/mv "$@"
+EOF
+chmod +x /tmp/test-bin/*
+PATH="/tmp/test-bin:$PATH"
+export PATH
+echo 1800000000 > /tmp/mock/now
+echo 203.0.113.10 > /tmp/mock/ip
+COUNT=0
+pass() { COUNT=$((COUNT + 1)); echo "PASS $COUNT: $*"; }
+fail() { echo "FAIL: $*"; exit 1; }
+eq() { [ "$1" = "$2" ] || fail "expected [$2], got [$1]"; }
+value() {
+    awk -v wanted="$1" -v key="$2" '
+        /^\[/ {section=substr($0,2,length($0)-2); next}
+        section==wanted && index($0,key "=")==1 {print substr($0,length(key)+2)}
+    ' /state/state.conf
+}
+config() {
+    cat > /app/mydns.conf <<'EOF'
+CHECK_INTERVAL=300
+FORCE_UPDATE_INTERVAL=86400
+[1]
+ID=one
+PASSWORD=dummy
+DOMAIN=one.example
+[2]
+ID=two
+PASSWORD=dummy
+DOMAIN=two.example
+EOF
+}
+cycle() {
+    : > /tmp/mock/updates
+    : > /tmp/mock/checks
+    sh /app/update.sh > /tmp/cycle.log 2>&1 || {
+        cat /tmp/cycle.log
+        fail 'updater exited with an error'
+    }
+    cat /tmp/cycle.log
+}
+updates() { tr '\n' ',' < /tmp/mock/updates; }
+checks() { tr '\n' ',' < /tmp/mock/checks; }
+sh -n /app/update.sh
+pass 'shell syntax'
+config
+touch /tmp/mock/check-immediate
+cycle
+eq "$(updates)" 'one,two,'
+eq "$(value '' LAST_IPV4)" 203.0.113.10
+eq "$(value 1 LAST_UPDATE)" 1800000000
+[ ! -f /tmp/mock/immediate-failed ] || fail 'success was not saved immediately'
+pass 'initial update and immediate state-file replacement before next account'
+cycle
+eq "$(updates)" ''
+pass 'fresh process reloads saved state and skips unchanged IP'
+echo 203.0.113.20 > /tmp/mock/ip
+touch /tmp/mock/fail-two
+echo 1800000300 > /tmp/mock/now
+cycle
+eq "$(updates)" 'one,two,'
+eq "$(value 1 LAST_IPV4)" 203.0.113.20
+eq "$(value 2 LAST_IPV4)" 203.0.113.10
+eq "$(value 2 LAST_UPDATE)" 1800000000
+eq "$(value '' LAST_IPV4)" 203.0.113.10
+cp /state/state.conf /reports/partial-failure.state.conf
+pass 'partial failure preserves failed account and global state'
+cycle
+eq "$(updates)" 'two,'
+pass 'restart retries only failed account'
+echo 203.0.113.10 > /tmp/mock/ip
+cycle
+eq "$(updates)" 'one,'
+eq "$(value 1 LAST_IPV4)" 203.0.113.10
+pass 'A to B to A updates only account still recorded at B'
+rm /tmp/mock/fail-two
+echo 203.0.113.20 > /tmp/mock/ip
+cycle
+eq "$(updates)" 'one,two,'
+eq "$(value '' LAST_IPV4)" 203.0.113.20
+pass 'all-account convergence updates global IP'
+# Make only account 2 due; account 1 remains recent.
+awk '/^\[/{s=$0} s=="[2]" && /^LAST_UPDATE=/{ $0="LAST_UPDATE=1799900000" } {print}' \
+    /state/state.conf > /tmp/edited-state
+/bin/mv /tmp/edited-state /state/state.conf
+cycle
+eq "$(updates)" 'two,'
+pass 'force update is evaluated per account'
+touch /tmp/mock/fail-service-1 /tmp/mock/invalid-service-2
+cycle
+eq "$(checks)" '1,2,3,'
+eq "$(updates)" ''
+pass 'network failure and malformed IPv4 fall back to third service'
+cp /state/state.conf /tmp/before-state
+touch /tmp/mock/fail-service-3
+cycle
+eq "$(updates)" ''
+cmp /state/state.conf /tmp/before-state || fail 'state changed after all IP checks failed'
+pass 'all IP services fail without updates or state changes'
+rm /tmp/mock/fail-service-1 /tmp/mock/invalid-service-2 /tmp/mock/fail-service-3
+config
+sed 's/CHECK_INTERVAL=300/CHECK_INTERVAL=-1/;s/FORCE_UPDATE_INTERVAL=86400/FORCE_UPDATE_INTERVAL=0/' \
+    /app/mydns.conf > /tmp/config
+cp /tmp/config /app/mydns.conf
+cycle
+eq "$(cat /tmp/mock/sleep)" 300
+grep -q 'Invalid FORCE_UPDATE_INTERVAL' /tmp/cycle.log || fail 'missing force interval warning'
+pass 'invalid interval values revert to defaults'
+config
+sed 's/CHECK_INTERVAL=300/CHECK_INTERVAL=86400/;s/FORCE_UPDATE_INTERVAL=86400/FORCE_UPDATE_INTERVAL=3600/' \
+    /app/mydns.conf > /tmp/config
+cp /tmp/config /app/mydns.conf
+cycle
+eq "$(cat /tmp/mock/sleep)" 86400
+grep -q 'FORCE_UPDATE_INTERVAL < CHECK_INTERVAL' /tmp/cycle.log || fail 'missing interval order warning'
+pass 'force interval shorter than check interval is corrected'
+config
+awk '{printf "%s\r\n", $0}' /app/mydns.conf > /tmp/config
+cp /tmp/config /app/mydns.conf
+cycle
+eq "$(updates)" ''
+pass 'CRLF configuration'
+config
+{ printf 'IP_CHECK_URL1=https://test.invalid/one\nIP_CHECK_URL2=https://test.invalid/two\nIP_CHECK_URL3=https://test.invalid/three\n'; cat /app/mydns.conf; } > /tmp/config
+cp /tmp/config /app/mydns.conf
+touch /tmp/mock/fail-service-1 /tmp/mock/fail-service-2
+cycle
+eq "$(checks)" '1,2,3,'
+pass 'custom IP check services'
+rm /tmp/mock/fail-service-1 /tmp/mock/fail-service-2
+config
+echo 'broken state' > /state/state.conf
+cycle
+eq "$(updates)" 'one,two,'
+pass 'malformed state causes initialization'
+awk '/^\[2\]/{exit} {print}' /state/state.conf > /tmp/edited-state
+/bin/mv /tmp/edited-state /state/state.conf
+cycle
+eq "$(updates)" 'two,'
+pass 'missing account state initializes only that account'
+echo 203.0.113.30 > /tmp/mock/ip
+touch /tmp/mock/reject-two
+cycle
+eq "$(value 2 LAST_IPV4)" 203.0.113.20
+eq "$(value '' LAST_IPV4)" 203.0.113.20
+pass 'HTTP success without MyDNS success text is rejected'
+rm /tmp/mock/reject-two
+cycle
+eq "$(updates)" 'two,'
+grep -Eq '[0-9]{2}:[0-9]{2}:[0-9]{2} JST' /tmp/cycle.log || fail 'JST log missing'
+pass 'retry succeeds and logs include JST'
+cp /state/state.conf /tmp/before-state
+echo 203.0.113.40 > /tmp/mock/ip
+touch /tmp/mock/fail-save
+: > /tmp/mock/updates
+if sh /app/update.sh > /tmp/cycle.log 2>&1; then
+    fail 'save failure did not stop updater'
+fi
+cat /tmp/cycle.log
+eq "$(updates)" 'one,'
+cmp /state/state.conf /tmp/before-state || fail 'failed save damaged previous state'
+pass 'save failure stops before next account and preserves previous file'
+rm /tmp/mock/fail-save
+cp /state/state.conf /reports/final.state.conf
+echo "ALL TESTS PASSED ($COUNT checks)"

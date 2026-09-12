@@ -1,0 +1,10 @@
+services:
+  test:
+    image: alpine:latest
+    network_mode: none
+    restart: "no"
+    volumes:
+      - ./:/suite:ro
+      - ../update.sh:/suite/update.sh:ro
+      - ./reports:/reports
+    command: ["sh", "/suite/entrypoint.sh"]
