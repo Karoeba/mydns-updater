@@ -73,6 +73,14 @@ LAST_UPDATE=1789200000
 
 旧版を停止し、INTERVALをCHECK_INTERVALとFORCE_UPDATE_INTERVALに置き換えてください。INTERVALは警告のみで使用しません。stateフォルダーを作成し、更新したCompose構成で再作成します。同じアカウントを更新する旧版と新版を同時稼働させないでください。
 
+## Automated tests
+
+GitHub Actionsで、PR作成・更新時とmainへのpush時に既存のDocker模擬テストを自動実行します。Actionsタブの「Docker tests」から手動実行もできます（mainへの取り込み後）。
+
+PRのChecksで「Alpine mock tests」の成功・失敗を確認できます。実行ログと、生成されたtest-reports（14日間保存）から結果を確認してください。コンテナ起動前に失敗した場合はレポートがないためActionsのログを確認します。
+
+GitHub側の一時的なUbuntu環境でAlpineコンテナを実行します。NASや実アカウントの認証情報は使用しません。実機での起動・MyDNS通信・永続化の確認は別途必要です。自動実行の追加だけでは、テスト失敗時のマージを禁止する設定にはなりません。
+
 ## Tests
 
 ```sh
