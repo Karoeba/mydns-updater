@@ -36,7 +36,9 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: test-reports
-          path: tests/reports/
+          path: |
+            tests/reports/test.log
+            tests/reports/result.txt
           if-no-files-found: warn
           retention-days: 14
 
