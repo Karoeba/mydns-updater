@@ -1,0 +1,12 @@
+# Update interval in seconds
+INTERVAL=3600
+
+[1]
+ID=your-master-id
+PASSWORD=your-password
+DOMAIN=example.mydns.jp
+
+#[2]
+#ID=your-second-master-id
+#PASSWORD=your-second-password
+#DOMAIN=example2.mydns.jp
