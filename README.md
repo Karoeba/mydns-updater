@@ -82,7 +82,11 @@ docker compose -f tests/compose.yaml run --rm test
 
 外部通信を無効にしたAlpineコンテナで19項目の模擬テストを実行します。初回のイメージ取得には接続が必要です。成功時はALL TESTS PASSED (19 checks)を表示します。結果はtests/reportsに保存します。curl・時刻・待機・保存失敗を模擬し、1周期ずつ新しいプロセスで状態を再読込します。
 
-DS1522+で同じupdate.shとテストスクリプトの全項目合格が報告されています。実アカウントでの通知成功、JSTログ、状態保存、コンテナ再作成後の状態保持も確認済みです。リポジトリ配置用のテストComposeは別途再実行してください。
+DS1522+のContainer Managerで、v1.1.1と修正済みのテスト構成による19項目の合格を2026-09-13に確認しました。実アカウントでの通知成功、JSTログ、状態保存、コンテナ再作成後の状態保持も確認済みです。
+
+Container Managerではプロジェクトのパスをリポジトリ内のtestsフォルダーにし、その中のcompose.yamlを指定してください。tests/reportsは事前に作成します。update.shは1つ上の階層に置きます。本番用のルートcompose.yamlは選びません。
+
+テストのupdate.shは/source/update.shへ個別にマウントし、読み取り専用の/suiteとは分離しています。成功時もコンテナは終了します。途中のFAILEDや保存失敗ログは意図した異常系テストであり、最後のALL TESTS PASSEDを確認してください。
 
 ## Security and limitations
 
