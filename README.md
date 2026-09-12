@@ -157,6 +157,12 @@ Initial release.
 
 ## Disclaimer
 
-This project is an unofficial tool and is not affiliated with MyDNS.JP.
+This project is an unofficial tool and is not affiliated with, endorsed by, or sponsored by MyDNS.JP.
+
+MyDNS is a trademark or registered trademark of its respective owner.
+
+Docker is a trademark or registered trademark of Docker, Inc. in the United States and/or other countries.
+
+All other product names, trademarks, and registered trademarks are the property of their respective owners.
 
 Use at your own risk.
