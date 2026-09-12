@@ -36,6 +36,12 @@ Synology Container Managerでは、配置先をプロジェクトのパスにし
 
 mydns.confの最初のアカウントセクションより前に `TZ=Asia/Tokyo` を指定します。省略時は日本時間です。`UTC` や `America/New_York` など、イメージに含まれるzoneinfo名を使用できます。空欄・存在しない名前・ファイルパス等の不正値は日本時間へ戻して警告します。POSIX形式のTZ式は受け付けません。
 
+起動ログの例:
+
+```text
+2026-09-13 12:00:00 UTC [STARTUP] MyDNS updater v1.2.0 started: TZ=UTC, CHECK_INTERVAL=300s, FORCE_UPDATE_INTERVAL=86400s
+```
+
 設定は各確認周期で再読込します。ログの日時と略称（JST/UTC/EST/EDT等）は指定地域と夏時間に従います。起動ログには実効TZ名も表示します。LAST_UPDATEはUNIX時刻のままで、タイムゾーンを変えても定期更新の判定や保存形式は変わりません。TZを設定ファイルで省略した場合、コンテナ環境変数より既定のAsia/Tokyoが優先されます。
 
 v1.2.0は開発中です。1.1系の稼働環境をそのまま残し、実機検証は別環境で行ってください。本番Composeのイメージタグは1.2.xです。固定コンテナ名が同じため並列の実機検証では名前の変更が必要です。模擬テストは独立したtestサービスなので本番と共存できます。
@@ -75,7 +81,7 @@ LAST_UPDATE=1789200000
 
 セクション番号は一意の1〜9桁の数字で、状態の識別子です。同じ番号を別アカウントに再利用するときは、停止して該当状態セクションを削除し、初回扱いにしてください。state.confは通知成功の記録であり、DNS応答の検証ではありません。
 
-ログはJST固定です。IP不変・期限前は通知ログが出なくても正常です。
+ログは既定でJSTです。TZの指定で変更できます。IP不変・期限前は通知ログが出なくても正常です。
 
 ## Upgrade from v1.0.0
 
@@ -96,11 +102,11 @@ mkdir -p tests/reports
 docker compose -f tests/compose.yaml run --build --rm test
 ```
 
-外部通信を無効にしたAlpineコンテナで26項目の模擬テストを実行します。初回のイメージ取得には接続が必要です。成功時はALL TESTS PASSED (26 checks)を表示します。結果はtests/reportsに保存します。curl・時刻・待機・保存失敗を模擬し、1周期ずつ新しいプロセスで状態を再読込します。
+外部通信を無効にしたAlpineコンテナで26項目の模擬テストを実行します。初回のイメージ取得と構築時のcurl・tzdata取得には接続が必要です。成功時はALL TESTS PASSED (26 checks)を表示します。結果はtests/reportsに保存します。curl・時刻・待機・保存失敗を模擬し、1周期ずつ新しいプロセスで状態を再読込します。
 
 DS1522+のContainer Managerで、v1.1.1と修正済みのテスト構成による19項目の合格を2026-09-13に確認しました。実アカウントでの通知成功、JSTログ、状態保存、コンテナ再作成後の状態保持も確認済みです。
 
-Container Managerではプロジェクトのパスをリポジトリ内のtestsフォルダーにし、その中のcompose.yamlを指定してください。tests/reportsは事前に作成します。update.shは1つ上の階層に置きます。本番用のルートcompose.yamlは選びません。
+Container Managerではプロジェクトのパスをリポジトリ内のtestsフォルダーにし、その中のcompose.yamlを指定してください。tests/reportsは事前に作成します。update.shとDockerfileは1つ上の階層に置きます。本番用のルートcompose.yamlは選びません。
 
 テストのupdate.shは/source/update.shへ個別にマウントし、読み取り専用の/suiteとは分離しています。成功時もコンテナは終了します。途中のFAILEDや保存失敗ログは意図した異常系テストであり、最後のALL TESTS PASSEDを確認してください。
 
@@ -110,7 +116,9 @@ mydns.confには認証情報が含まれます。Gitへ追加しないでくだ�
 
 IPv4のみ対応しています。通知先はhttps://ipv4.mydns.jp/login.htmlです。成功応答と状態保存は別処理なので、その間の停止では再通知が発生し得ます。IPv4取得から通知までの間の回線IP変化を完全には排除できません。1つのstateフォルダーを複数の稼働コンテナで共有しないでください。
 
-## Naming and v1.1.1 migration
+## Historical naming and v1.1.1 migration
+
+以下はv1.1.1導入時の記録です。v1.2.0の構成は上のTimezone節を参照してください。
 
 1.1系では、NASフォルダーを `mydns-updater-v1.1.x`、プロジェクト名とコンテナ名を `mydns-updater`、イメージ名を `mydns-updater:1.1.x` に固定します。`1.1.x` は自動更新やワイルドカードではなく固定の名前です。実際の版は起動ログと変更履歴で確認します。
 
