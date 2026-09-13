@@ -71,7 +71,7 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
-Synology Container Managerでは、ファイルを配置したフォルダーをプロジェクトのパスにし、ルートの `compose.yaml` を指定して構築・開始します。`config/mydns.conf` と `state` フォルダーは事前に作成してください。プロジェクト名には `mydns-updater` を使用できます。
+Synology Container Managerでは、ファイルを配置したフォルダーをプロジェクトのパスにし、ルートの `compose.yaml` を指定して構築・開始します。`config/mydns.conf` と `state` フォルダーは事前に作成してください。配置先の例は `/docker/mydns-updater`、プロジェクト名は `mydns-updater` です。フォルダー名にバージョンを含める必要はありません。
 
 ## Configuration
 
@@ -172,7 +172,9 @@ Container Managerでは、プロジェクトが実際に使用しているYAML�
 
 `config/mydns.conf` と `state` を保持して更新します。`update.sh` だけの変更は停止・上書き・開始で反映できます。Composeのマウント変更は再作成、Dockerfileや依存ソフトの変更は再構築が必要です。
 
-イメージタグ `mydns-updater:1.1.x` は固定名であり、自動更新やワイルドカードではありません。実際のバージョンは起動ログで確認してください。NASの配置フォルダー名は任意です。
+イメージ名は `mydns-updater:local`、コンテナ名は `mydns-updater` に固定します。`local` は手元で構築するイメージの名前で、自動更新を意味しません。実際に動く `update.sh` のバージョンは起動ログで確認してください。
+
+既存環境のフォルダー名を変更する場合は、コンテナを停止し、設定と状態をバックアップしてから、新しい配置先でプロジェクトを再作成してください。イメージ名の変更を反映するときは、新しいCompose構成で構築・再作成します。
 
 ## Tests
 
