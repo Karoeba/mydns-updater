@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-mkdir -p /app /state /tmp/mock /tmp/test-bin
+mkdir -p /app /config /state /tmp/mock /tmp/test-bin
 # These paths exist only inside this dedicated disposable test container.
 rm -f /state/state.conf /tmp/mock/* /tmp/test-bin/*
 cp /source/update.sh /app/update.sh
@@ -41,7 +41,7 @@ value() {
     ' /state/state.conf
 }
 config() {
-    cat > /app/mydns.conf <<'EOF'
+    cat > /config/mydns.conf <<'EOF'
 CHECK_INTERVAL=300
 FORCE_UPDATE_INTERVAL=86400
 [1]
@@ -124,29 +124,29 @@ pass 'all IP services fail without updates or state changes'
 rm /tmp/mock/fail-service-1 /tmp/mock/invalid-service-2 /tmp/mock/fail-service-3
 config
 sed 's/CHECK_INTERVAL=300/CHECK_INTERVAL=-1/;s/FORCE_UPDATE_INTERVAL=86400/FORCE_UPDATE_INTERVAL=0/' \
-    /app/mydns.conf > /tmp/config
-cp /tmp/config /app/mydns.conf
+    /config/mydns.conf > /tmp/config
+cp /tmp/config /config/mydns.conf
 cycle
 eq "$(cat /tmp/mock/sleep)" 300
 grep -q 'Invalid FORCE_UPDATE_INTERVAL' /tmp/cycle.log || fail 'missing force interval warning'
 pass 'invalid interval values revert to defaults'
 config
 sed 's/CHECK_INTERVAL=300/CHECK_INTERVAL=86400/;s/FORCE_UPDATE_INTERVAL=86400/FORCE_UPDATE_INTERVAL=3600/' \
-    /app/mydns.conf > /tmp/config
-cp /tmp/config /app/mydns.conf
+    /config/mydns.conf > /tmp/config
+cp /tmp/config /config/mydns.conf
 cycle
 eq "$(cat /tmp/mock/sleep)" 86400
 grep -q 'FORCE_UPDATE_INTERVAL < CHECK_INTERVAL' /tmp/cycle.log || fail 'missing interval order warning'
 pass 'force interval shorter than check interval is corrected'
 config
-awk '{printf "%s\r\n", $0}' /app/mydns.conf > /tmp/config
-cp /tmp/config /app/mydns.conf
+awk '{printf "%s\r\n", $0}' /config/mydns.conf > /tmp/config
+cp /tmp/config /config/mydns.conf
 cycle
 eq "$(updates)" ''
 pass 'CRLF configuration'
 config
-{ printf 'IP_CHECK_URL1=https://test.invalid/one\nIP_CHECK_URL2=https://test.invalid/two\nIP_CHECK_URL3=https://test.invalid/three\n'; cat /app/mydns.conf; } > /tmp/config
-cp /tmp/config /app/mydns.conf
+{ printf 'IP_CHECK_URL1=https://test.invalid/one\nIP_CHECK_URL2=https://test.invalid/two\nIP_CHECK_URL3=https://test.invalid/three\n'; cat /config/mydns.conf; } > /tmp/config
+cp /tmp/config /config/mydns.conf
 touch /tmp/mock/fail-service-1 /tmp/mock/fail-service-2
 cycle
 eq "$(checks)" '1,2,3,'
@@ -186,4 +186,46 @@ cmp /state/state.conf /tmp/before-state || fail 'failed save damaged previous st
 pass 'save failure stops before next account and preserves previous file'
 rm /tmp/mock/fail-save
 cp /state/state.conf /reports/final.state.conf
+
+# Check debug output without exposing credentials.
+debug_config() {
+    config
+    { printf 'DEBUG=%s\n' "$1"; cat /config/mydns.conf; } > /tmp/config
+    cp /tmp/config /config/mydns.conf
+}
+echo 203.0.113.30 > /tmp/mock/ip
+debug_config 1
+cycle
+grep -Fq '[DEBUG] [CHECK] IPv4 check started' /tmp/cycle.log || fail 'missing check-start log'
+grep -Fq '[DEBUG] [CHECK] IPv4 acquired: 203.0.113.30' /tmp/cycle.log || fail 'missing acquired log'
+grep -Fq '[1] [SKIP]' /tmp/cycle.log || fail 'missing account skip log'
+eq "$(updates)" ''
+if grep -Eq 'dummy|one:|two:|Login and IP' /tmp/cycle.log; then fail 'credential or response leaked'; fi
+pass 'debug check and skip logs without credentials'
+debug_config 0
+cycle
+if grep -Fq '[DEBUG]' /tmp/cycle.log; then fail 'disabled debug logged'; fi
+config
+cycle
+if grep -Fq '[DEBUG]' /tmp/cycle.log; then fail 'omitted debug logged'; fi
+pass 'debug off and omitted preserve quiet logs'
+for setting in '' 2 yes -1; do
+    debug_config "$setting"
+    cycle
+    grep -Fq '[CONFIG] Invalid DEBUG: using 0' /tmp/cycle.log || fail 'missing invalid DEBUG warning'
+    if grep -Fq '[DEBUG]' /tmp/cycle.log; then fail 'invalid debug enabled'; fi
+done
+pass 'invalid debug values warn and disable'
+debug_config 1
+rm /state/state.conf
+cycle
+grep -Fq '[UPDATE] account state missing' /tmp/cycle.log || fail 'missing initial reason'
+echo 203.0.113.50 > /tmp/mock/ip
+cycle
+grep -Fq '[UPDATE] IPv4 changed' /tmp/cycle.log || fail 'missing IP change reason'
+echo 1800090000 > /tmp/mock/now
+cycle
+grep -Fq '[UPDATE] force update interval reached' /tmp/cycle.log || fail 'missing force reason'
+pass 'debug identifies initial IP-change and force-update reasons'
+
 echo "ALL TESTS PASSED ($COUNT checks)"

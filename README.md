@@ -7,11 +7,11 @@ MyDNS.JPのIPv4通知を管理するDockerコンテナです。複数アカウ�
 ```sh
 git clone https://github.com/Karoeba/mydns-updater.git
 cd mydns-updater
-cp mydns.conf.example mydns.conf
-mkdir -p state
+mkdir -p config state
+cp mydns.conf.example config/mydns.conf
 ```
 
-mydns.confにMasterID、Password、ログ表示用DOMAINを設定してください。値を引用符で囲まず、キーの前後に空白を入れないでください。
+config/mydns.confにMasterID、Password、ログ表示用DOMAINを設定してください。値を引用符で囲まず、キーの前後に空白を入れないでください。
 
 ```ini
 CHECK_INTERVAL=300
@@ -30,7 +30,25 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
-Synology Container Managerでは、配置先をプロジェクトのパスにしてcompose.yamlを読み込み、構築・開始します。mydns.confとstateフォルダーは起動前に作成してください。
+Synology Container Managerでは、配置先をプロジェクトのパスにしてcompose.yamlを読み込み、構築・開始します。config/mydns.confとstateフォルダーは起動前に作成してください。
+
+## Debug logs and configuration reload (v1.1.2)
+
+設定は `config/mydns.conf` に保存します。Composeでは `./config:/config:ro` としてフォルダーをマウントするため、NASへの上書きアップロードでファイルが置き換わっても、次の確認周期で読み直します。configフォルダー自体を入れ替える場合は再作成が必要です。
+
+`DEBUG=1` でIPv4確認開始・取得IP・アカウント番号別の更新理由（初回、IP変更、期限到来）またはスキップ理由を追加表示します。`DEBUG=0` または省略で無効。不正値は警告して0へ戻します。ID・パスワード・認証応答本文はデバッグログに含めません。IPやログ表示用ドメインは通常ログと同様に表示されます。
+
+設定変更は再起動不要で、処理時間＋CHECK_INTERVALの周期で反映します。起動ログは起動時点の値であり、過去の表示は変更されません。不正値への復帰は動作上だけで、設定ファイルを書き換えません。
+
+### v1.1.1から移行
+
+1. コンテナを停止し、mydns.confとstateをバックアップします。
+2. 配置フォルダー内にconfigを作り、既存mydns.confをconfig/mydns.confへ移します。サンプルで実設定を上書きしないでください。
+3. update.shとcompose.yamlをv1.1.2へ更新します。Container Managerが使用しているYAMLも `./config:/config:ro` に変更します。
+4. コンテナを再作成して開始し、v1.1.2の起動ログを確認します。stateフォルダーは保持します。今回Dockerfileは変更していません。
+5. config/mydns.confのDEBUGを1にして上書きアップロードし、再起動せず次周期にログが出ることを確認します。0に戻すと追加ログが止まります。
+
+今回の修正はv1.1.2の公開候補です。稼働版を切り替える前に別のテスト環境で確認してください。
 
 ## Configuration
 
@@ -86,9 +104,12 @@ GitHub側の一時的なUbuntu環境でAlpineコンテナを実行します。NA
 ```sh
 mkdir -p tests/reports
 docker compose -f tests/compose.yaml run --rm test
+sh tests/test-config-reload.sh
 ```
 
-外部通信を無効にしたAlpineコンテナで19項目の模擬テストを実行します。初回のイメージ取得には接続が必要です。成功時はALL TESTS PASSED (19 checks)を表示します。結果はtests/reportsに保存します。curl・時刻・待機・保存失敗を模擬し、1周期ずつ新しいプロセスで状態を再読込します。
+外部通信を無効にしたAlpineコンテナで23項目の模擬テストを実行します。初回のイメージ取得には接続が必要です。成功時はALL TESTS PASSED (23 checks)を表示します。結果はtests/reportsに保存します。curl・時刻・待機・保存失敗を模擬し、1周期ずつ新しいプロセスで状態を再読込します。
+
+加えてLinuxのDockerホスト上で、設定ファイルをホスト側から置き換え、同じコンテナのまま設定を読み直す3項目を検証します。GitHub Actionsでも実行します。Container Managerだけで行う場合、このホスト側テストは自動では実行されないため、config/mydns.confを手動で上書きして確認します。
 
 DS1522+のContainer Managerで、v1.1.1と修正済みのテスト構成による19項目の合格を2026-09-13に確認しました。実アカウントでの通知成功、JSTログ、状態保存、コンテナ再作成後の状態保持も確認済みです。
 
@@ -102,7 +123,9 @@ mydns.confには認証情報が含まれます。Gitへ追加しないでくだ�
 
 IPv4のみ対応しています。通知先はhttps://ipv4.mydns.jp/login.htmlです。成功応答と状態保存は別処理なので、その間の停止では再通知が発生し得ます。IPv4取得から通知までの間の回線IP変化を完全には排除できません。1つのstateフォルダーを複数の稼働コンテナで共有しないでください。
 
-## Naming and v1.1.1 migration
+## Historical naming and v1.1.1 migration
+
+以下はv1.1.1導入時の記録です。現在の設定ファイル配置は上のv1.1.2移行手順を参照してください。
 
 1.1系では、NASフォルダーを `mydns-updater-v1.1.x`、プロジェクト名とコンテナ名を `mydns-updater`、イメージ名を `mydns-updater:1.1.x` に固定します。`1.1.x` は自動更新やワイルドカードではなく固定の名前です。実際の版は起動ログと変更履歴で確認します。
 
@@ -128,6 +151,11 @@ Synologyで既存のmydns-updater-v110から移行する場合:
 今回の移行ではイメージ名が変わるため構築が必要です。その後update.shだけを差し替える場合は停止・差し替え・開始で反映できます。Dockerfileや依存ソフトを変更した場合は再構築してください。固定イメージタグだけでは稼働中のスクリプトの版を判別できません。
 
 ## Version
+
+### v1.1.2 (unreleased)
+- DEBUGによる確認周期と更新理由のログを追加。
+- configフォルダーのマウントに変更し、上書きアップロード後の再読込を修正。
+- ホスト側でファイルを置き換える自動テストを追加。
 
 ### v1.1.1
 - 起動時に実際のバージョンと確認・強制更新間隔をJSTログへ表示。
