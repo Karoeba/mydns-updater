@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-mkdir -p /app /state /tmp/mock /tmp/test-bin
+mkdir -p /app /config /state /tmp/mock /tmp/test-bin
 # These paths exist only inside this dedicated disposable test container.
 rm -f /state/state.conf /tmp/mock/* /tmp/test-bin/*
 cp /source/update.sh /app/update.sh
@@ -43,7 +43,7 @@ value() {
     ' /state/state.conf
 }
 config() {
-    cat > /app/mydns.conf <<'EOF'
+    cat > /config/mydns.conf <<'EOF'
 CHECK_INTERVAL=300
 FORCE_UPDATE_INTERVAL=86400
 [1]
@@ -126,29 +126,29 @@ pass 'all IP services fail without updates or state changes'
 rm /tmp/mock/fail-service-1 /tmp/mock/invalid-service-2 /tmp/mock/fail-service-3
 config
 sed 's/CHECK_INTERVAL=300/CHECK_INTERVAL=-1/;s/FORCE_UPDATE_INTERVAL=86400/FORCE_UPDATE_INTERVAL=0/' \
-    /app/mydns.conf > /tmp/config
-cp /tmp/config /app/mydns.conf
+    /config/mydns.conf > /tmp/config
+cp /tmp/config /config/mydns.conf
 cycle
 eq "$(cat /tmp/mock/sleep)" 300
 grep -q 'Invalid FORCE_UPDATE_INTERVAL' /tmp/cycle.log || fail 'missing force interval warning'
 pass 'invalid interval values revert to defaults'
 config
 sed 's/CHECK_INTERVAL=300/CHECK_INTERVAL=86400/;s/FORCE_UPDATE_INTERVAL=86400/FORCE_UPDATE_INTERVAL=3600/' \
-    /app/mydns.conf > /tmp/config
-cp /tmp/config /app/mydns.conf
+    /config/mydns.conf > /tmp/config
+cp /tmp/config /config/mydns.conf
 cycle
 eq "$(cat /tmp/mock/sleep)" 86400
 grep -q 'FORCE_UPDATE_INTERVAL < CHECK_INTERVAL' /tmp/cycle.log || fail 'missing interval order warning'
 pass 'force interval shorter than check interval is corrected'
 config
-awk '{printf "%s\r\n", $0}' /app/mydns.conf > /tmp/config
-cp /tmp/config /app/mydns.conf
+awk '{printf "%s\r\n", $0}' /config/mydns.conf > /tmp/config
+cp /tmp/config /config/mydns.conf
 cycle
 eq "$(updates)" ''
 pass 'CRLF configuration'
 config
-{ printf 'IP_CHECK_URL1=https://test.invalid/one\nIP_CHECK_URL2=https://test.invalid/two\nIP_CHECK_URL3=https://test.invalid/three\n'; cat /app/mydns.conf; } > /tmp/config
-cp /tmp/config /app/mydns.conf
+{ printf 'IP_CHECK_URL1=https://test.invalid/one\nIP_CHECK_URL2=https://test.invalid/two\nIP_CHECK_URL3=https://test.invalid/three\n'; cat /config/mydns.conf; } > /tmp/config
+cp /tmp/config /config/mydns.conf
 touch /tmp/mock/fail-service-1 /tmp/mock/fail-service-2
 cycle
 eq "$(checks)" '1,2,3,'
@@ -194,8 +194,8 @@ echo 203.0.113.30 > /tmp/mock/ip
 echo 1705320000 > /tmp/mock/display-epoch
 timezone_config() {
     config
-    { printf 'TZ=%s\n' "$1"; cat /app/mydns.conf; } > /tmp/config
-    cp /tmp/config /app/mydns.conf
+    { printf 'TZ=%s\n' "$1"; cat /config/mydns.conf; } > /tmp/config
+    cp /tmp/config /config/mydns.conf
 }
 expect_log() { grep -Fq "$1" /tmp/cycle.log || fail "missing log: $1"; }
 
@@ -233,8 +233,8 @@ for zone in '' Mars/Olympus ../etc/passwd /etc/passwd zone.tab Asia 'JST-9' 'UTC
 done
 pass 'empty unknown and invalid timezone values fall back safely'
 timezone_config UTC
-awk '{printf "%s\r\n", $0}' /app/mydns.conf > /tmp/config
-cp /tmp/config /app/mydns.conf
+awk '{printf "%s\r\n", $0}' /config/mydns.conf > /tmp/config
+cp /tmp/config /config/mydns.conf
 cycle
 expect_log '2024-01-15 12:00:00 UTC [STARTUP]'
 pass 'CRLF timezone configuration'
@@ -246,5 +246,116 @@ cycle
 eq "$(updates)" 'two,'
 eq "$(value 2 LAST_UPDATE)" "$(cat /tmp/mock/now)"
 pass 'force update keeps using UNIX seconds under UTC'
+
+
+rm /tmp/mock/display-epoch
+
+# Check debug output without exposing credentials.
+debug_config() {
+    config
+    { printf 'DEBUG=%s\n' "$1"; cat /config/mydns.conf; } > /tmp/config
+    cp /tmp/config /config/mydns.conf
+}
+echo 203.0.113.30 > /tmp/mock/ip
+debug_config 1
+cycle
+grep -Fq '[DEBUG] [CHECK] IPv4 check started' /tmp/cycle.log || fail 'missing check-start log'
+grep -Fq '[DEBUG] [CHECK] IPv4 acquired: 203.0.113.30' /tmp/cycle.log || fail 'missing acquired log'
+grep -Fq '[1] [SKIP]' /tmp/cycle.log || fail 'missing account skip log'
+eq "$(updates)" ''
+if grep -Eq 'dummy|one:|two:|Login and IP' /tmp/cycle.log; then fail 'credential or response leaked'; fi
+pass 'debug check and skip logs without credentials'
+debug_config 0
+cycle
+if grep -Fq '[DEBUG]' /tmp/cycle.log; then fail 'disabled debug logged'; fi
+config
+cycle
+if grep -Fq '[DEBUG]' /tmp/cycle.log; then fail 'omitted debug logged'; fi
+pass 'debug off and omitted preserve quiet logs'
+for setting in '' 2 yes -1; do
+    debug_config "$setting"
+    cycle
+    grep -Fq '[CONFIG] Invalid DEBUG: using 0' /tmp/cycle.log || fail 'missing invalid DEBUG warning'
+    if grep -Fq '[DEBUG]' /tmp/cycle.log; then fail 'invalid debug enabled'; fi
+done
+pass 'invalid debug values warn and disable'
+debug_config 1
+rm /state/state.conf
+cycle
+grep -Fq '[UPDATE] account state missing' /tmp/cycle.log || fail 'missing initial reason'
+echo 203.0.113.50 > /tmp/mock/ip
+cycle
+grep -Fq '[UPDATE] IPv4 changed' /tmp/cycle.log || fail 'missing IP change reason'
+echo 1800090000 > /tmp/mock/now
+cycle
+grep -Fq '[UPDATE] force update interval reached' /tmp/cycle.log || fail 'missing force reason'
+pass 'debug identifies initial IP-change and force-update reasons'
+
+
+# Malformed account activation must not replace another account's identity.
+config
+echo 203.0.113.60 > /tmp/mock/ip
+before_two_time="$(value 2 LAST_UPDATE)"
+sed '/^DOMAIN=two.example$/s/^/#/' /config/mydns.conf > /tmp/config
+cp /tmp/config /config/mydns.conf
+cycle
+eq "$(updates)" 'one,'
+grep -Fq '[2] MyDNS update: CONFIG ERROR' /tmp/cycle.log || fail 'missing account configuration error'
+eq "$(value 2 LAST_UPDATE)" "$before_two_time"
+eq "$(value 2 LAST_IPV4)" 203.0.113.50
+pass 'missing domain skips only incomplete account and preserves its success record'
+cp /state/state.conf /tmp/activation-before
+expect_rejected_config() {
+    cycle
+    eq "$(updates)" ''
+    eq "$(checks)" ''
+    grep -Fq '[CONFIG]' /tmp/cycle.log || fail 'missing configuration warning'
+    grep -Fq 'skipping this cycle' /tmp/cycle.log || fail 'invalid configuration did not skip cycle'
+    cmp /state/state.conf /tmp/activation-before || fail 'invalid configuration changed state'
+    if grep -Eq 'dummy|one.example|two.example' /tmp/cycle.log; then fail 'configuration contents leaked'; fi
+}
+config
+sed '/^\[2\]$/s/^/#/' /config/mydns.conf > /tmp/config
+cp /tmp/config /config/mydns.conf
+expect_rejected_config
+pass 'commented section with three active fields is rejected before any communication'
+config
+sed '/^\[2\]$/s/^/#/;/^ID=two$/s/^/#/;/^PASSWORD=dummy$/s/^/#/' /config/mydns.conf > /tmp/config
+cp /tmp/config /config/mydns.conf
+expect_rejected_config
+pass 'commented section with only active domain is rejected'
+for field in ID PASSWORD DOMAIN; do
+    config
+    printf '%s=duplicate-value\n' "$field" >> /config/mydns.conf
+    expect_rejected_config
+    grep -Fq "duplicate $field" /tmp/cycle.log || fail 'missing duplicate key reason'
+done
+pass 'duplicate account keys without a commented header are rejected'
+config
+{ echo 'ID=orphan'; cat /config/mydns.conf; } > /tmp/config
+cp /tmp/config /config/mydns.conf
+expect_rejected_config
+pass 'account fields before first section are rejected'
+# Fully disabled blocks are valid; a following active header resets the boundary.
+config
+cat >> /config/mydns.conf <<'EOF'
+#[3]
+#ID=three
+#PASSWORD=dummy
+#DOMAIN=three.example
+[4]
+ID=four
+PASSWORD=dummy
+DOMAIN=four.example
+EOF
+cycle
+eq "$(updates)" 'two,four,'
+eq "$(value 4 LAST_IPV4)" 203.0.113.60
+pass 'fully commented account is ignored and following account remains valid'
+config
+cycle
+eq "$(updates)" ''
+if grep -Fq '[CONFIG]' /tmp/cycle.log; then fail 'corrected configuration still rejected'; fi
+pass 'corrected configuration resumes normally with existing state'
 
 echo "ALL TESTS PASSED ($COUNT checks)"

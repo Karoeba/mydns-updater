@@ -1,6 +1,9 @@
 # Log timezone (installed zoneinfo name; default: Asia/Tokyo)
 TZ=Asia/Tokyo
 
+# Debug logs: 0=off (default), 1=on
+DEBUG=0
+
 # IPv4 check interval in seconds: 60-86400 (default: 300)
 CHECK_INTERVAL=300
 
