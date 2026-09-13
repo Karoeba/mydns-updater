@@ -474,6 +474,10 @@ run_cycle() {
                 ALL_MATCH=0
             fi
         else
+            if [ -f "$WORK_DIR/diagnostic.account.$SECTION" ]; then
+                log "[INFO] [$ACCOUNT_TARGET] NO_UPDATE_REQUIRED; previous failure history cleared without a new notification"
+                rm -f "$WORK_DIR/diagnostic.account.$SECTION"
+            fi
             debug "[$SECTION] [SKIP] IPv4 unchanged; force update not due"
         fi
         [ "$ACCOUNT_IP" = "$CURRENT_IPV4" ] || ALL_MATCH=0

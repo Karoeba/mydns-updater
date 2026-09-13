@@ -108,10 +108,11 @@ while [ "$#" -gt 0 ]; do
     shift
 done
 code="$MOCK_CODE"; http="$MOCK_HTTP"; body="$MOCK_BODY"
-if [ "$MOCK_ROUTING" = 1 ]; then
+if [ "$MOCK_ROUTING" != 0 ]; then
     case "$url" in
         https://ipv4.mydns.jp/login.html)
             body='Login and IP address notify OK.'
+            [ "$MOCK_ROUTING" != 2 ] || body="$MOCK_BODY"
             if [ "$auth" = two:dummy ] && [ "$MOCK_FAIL_TWO" = 1 ]; then
                 body='private rejection content'; http=503; code=22
             fi
@@ -181,8 +182,12 @@ load_config
 run_cycle > /tmp/diagnostic.log
 has '[ACCOUNT 2: two.example] RECOVERED'
 has '[ACCOUNT 2: two.example] MyDNS update: OK'
-pass 'real cycle preserves successful account, suppresses repeat and recovers failed account'
-MOCK_ROUTING=0; MOCK_BODY='private unrecognized success'; MOCK_HTTP=200
+failure account.1 'ACCOUNT 1' TIMEOUT transient retry > /tmp/diagnostic.log
+run_cycle > /tmp/diagnostic.log
+has 'NO_UPDATE_REQUIRED'
+[ ! -f "$WORK_DIR/diagnostic.account.1" ] || fail 'obsolete failure retained'
+pass 'real cycle isolates recovery and clears failures when notification is no longer required'
+MOCK_ROUTING=2; MOCK_BODY='private unrecognized success'; MOCK_HTTP=200
 rm /state/state.conf
 run_cycle > /tmp/diagnostic.log
 has 'SUCCESS_NOT_CONFIRMED'
