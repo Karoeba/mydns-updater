@@ -106,6 +106,34 @@ load_config() {
         log "[CONFIG] Missing, invalid or duplicate account sections"
         return 1
     fi
+    # Prevent active fields below a commented header from leaking into
+    # the previous account, even if that account was missing the same key.
+    if ! awk '
+        { sub(/\r$/, "") }
+        /^\[/ { section=$0; disabled=0; next }
+        /^[[:space:]]*[#;][[:space:]]*\[[^]]+\][[:space:]]*$/ {
+            disabled=1; next
+        }
+        /^[[:space:]]*[#;]/ { next }
+        /^(ID|PASSWORD|DOMAIN)=/ {
+            key=substr($0, 1, index($0, "=")-1)
+            if (disabled) {
+                printf "line %d: active account field below commented section\n", NR
+                exit 1
+            }
+            if (section == "") {
+                printf "line %d: account field outside a section\n", NR
+                exit 1
+            }
+            if (fields[section SUBSEP key]++) {
+                printf "line %d: duplicate %s in %s\n", NR, key, section
+                exit 1
+            }
+        }
+    ' "$WORK_DIR/config" > "$WORK_DIR/config-error"; then
+        log "[CONFIG] $(cat "$WORK_DIR/config-error"); skipping this cycle"
+        return 1
+    fi
     read_interval CHECK_INTERVAL 60 86400 300
     CHECK_INTERVAL="$VALUE"
     read_interval FORCE_UPDATE_INTERVAL 3600 604800 86400

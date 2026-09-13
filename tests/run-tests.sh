@@ -228,4 +228,71 @@ cycle
 grep -Fq '[UPDATE] force update interval reached' /tmp/cycle.log || fail 'missing force reason'
 pass 'debug identifies initial IP-change and force-update reasons'
 
+
+# Malformed account activation must not replace another account's identity.
+config
+echo 203.0.113.60 > /tmp/mock/ip
+before_two_time="$(value 2 LAST_UPDATE)"
+sed '/^DOMAIN=two.example$/s/^/#/' /config/mydns.conf > /tmp/config
+cp /tmp/config /config/mydns.conf
+cycle
+eq "$(updates)" 'one,'
+grep -Fq '[2] MyDNS update: CONFIG ERROR' /tmp/cycle.log || fail 'missing account configuration error'
+eq "$(value 2 LAST_UPDATE)" "$before_two_time"
+eq "$(value 2 LAST_IPV4)" 203.0.113.50
+pass 'missing domain skips only incomplete account and preserves its success record'
+cp /state/state.conf /tmp/activation-before
+expect_rejected_config() {
+    cycle
+    eq "$(updates)" ''
+    eq "$(checks)" ''
+    grep -Fq '[CONFIG]' /tmp/cycle.log || fail 'missing configuration warning'
+    grep -Fq 'skipping this cycle' /tmp/cycle.log || fail 'invalid configuration did not skip cycle'
+    cmp /state/state.conf /tmp/activation-before || fail 'invalid configuration changed state'
+    if grep -Eq 'dummy|one.example|two.example' /tmp/cycle.log; then fail 'configuration contents leaked'; fi
+}
+config
+sed '/^\[2\]$/s/^/#/' /config/mydns.conf > /tmp/config
+cp /tmp/config /config/mydns.conf
+expect_rejected_config
+pass 'commented section with three active fields is rejected before any communication'
+config
+sed '/^\[2\]$/s/^/#/;/^ID=two$/s/^/#/;/^PASSWORD=dummy$/s/^/#/' /config/mydns.conf > /tmp/config
+cp /tmp/config /config/mydns.conf
+expect_rejected_config
+pass 'commented section with only active domain is rejected'
+for field in ID PASSWORD DOMAIN; do
+    config
+    printf '%s=duplicate-value\n' "$field" >> /config/mydns.conf
+    expect_rejected_config
+    grep -Fq "duplicate $field" /tmp/cycle.log || fail 'missing duplicate key reason'
+done
+pass 'duplicate account keys without a commented header are rejected'
+config
+{ echo 'ID=orphan'; cat /config/mydns.conf; } > /tmp/config
+cp /tmp/config /config/mydns.conf
+expect_rejected_config
+pass 'account fields before first section are rejected'
+# Fully disabled blocks are valid; a following active header resets the boundary.
+config
+cat >> /config/mydns.conf <<'EOF'
+#[3]
+#ID=three
+#PASSWORD=dummy
+#DOMAIN=three.example
+[4]
+ID=four
+PASSWORD=dummy
+DOMAIN=four.example
+EOF
+cycle
+eq "$(updates)" 'two,four,'
+eq "$(value 4 LAST_IPV4)" 203.0.113.60
+pass 'fully commented account is ignored and following account remains valid'
+config
+cycle
+eq "$(updates)" ''
+if grep -Fq '[CONFIG]' /tmp/cycle.log; then fail 'corrected configuration still rejected'; fi
+pass 'corrected configuration resumes normally with existing state'
+
 echo "ALL TESTS PASSED ($COUNT checks)"
