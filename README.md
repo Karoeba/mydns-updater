@@ -146,7 +146,7 @@ Synology Container Managerでは、ファイルを配置したフォルダーを
 
 IP取得先はIP_CHECK_URL1〜3、MyDNS通知はアカウント番号とログ表示用DOMAINで識別します。curl終了コード・HTTPステータス・固定の原因コードと対処の目安を表示し、URL全文、認証情報、応答本文は記録しません。HTTP 200でも成功応答がなければSUCCESS_NOT_CONFIRMEDとし、認証失敗と断定しません。
 
-失敗履歴は実行中の一時領域に保持し、再起動でリセットします。タイムゾーンや日時変更による誤判定を避けるため、継続時間はシステムの経過時間で測ります。接続先やアカウント設定が変わった場合も対象の履歴をリセットします。通知成功記録のstate.conf形式と更新・再試行間隔は変更しません。429のRetry-Afterに合わせた待機やHealthcheckは、この版には含めません。
+失敗履歴は実行中の一時領域に保持し、再起動でリセットします。タイムゾーンや日時変更による誤判定を避けるため、継続時間はシステムの経過時間で測ります。接続先やアカウント設定が変わった場合も対象の履歴をリセットします。アカウント削除や、IPが戻るなどして通知が不要になった場合は履歴を解除し、通信成功による復旧とは区別して表示します。通知成功記録のstate.conf形式と更新・再試行間隔は変更しません。429のRetry-Afterに合わせた待機やHealthcheckは、この版には含めません。
 
 ### 設定変更の反映
 
@@ -195,7 +195,7 @@ Container Managerでは、プロジェクトが実際に使用しているYAML�
 
 ## Tests
 
-GitHub ActionsはPR作成・更新時とmainへのpush時に、37項目の既存模擬テスト、19項目の診断テストと3項目の設定再読み込みテストを実行します。Actionsの「Docker tests」から手動実行もできます。結果はPRのChecksとActionsログ、成果物 `test-reports`（14日間保存）で確認できます。コンテナ起動前の失敗ではレポートがない場合があります。
+GitHub ActionsはPR作成・更新時とmainへのpush時に、37項目の既存模擬テスト、20項目の診断テストと3項目の設定再読み込みテストを実行します。Actionsの「Docker tests」から手動実行もできます。結果はPRのChecksとActionsログ、成果物 `test-reports`（14日間保存）で確認できます。コンテナ起動前の失敗ではレポートがない場合があります。
 
 手元で実行する場合：
 
@@ -206,7 +206,7 @@ docker compose -f tests/compose.yaml run --build --rm test
 sh tests/test-config-reload.sh
 ```
 
-模擬テストは外部通信を無効にし、実アカウントを使いません。初回のイメージ取得には接続が必要です。結果は `tests/reports` に保存され、成功時は `ALL TESTS PASSED (37 checks)` と `ALL DIAGNOSTIC TESTS PASSED (19 checks)` を表示して終了します。途中の失敗ログは異常系テストに含まれるため、最後の結果を確認してください。
+模擬テストは外部通信を無効にし、実アカウントを使いません。初回のイメージ取得には接続が必要です。結果は `tests/reports` に保存され、成功時は `ALL TESTS PASSED (37 checks)` と `ALL DIAGNOSTIC TESTS PASSED (20 checks)` を表示して終了します。途中の失敗ログは異常系テストに含まれるため、最後の結果を確認してください。
 
 Container Managerでは、プロジェクトのパスを `tests` フォルダーにし、その中の `compose.yaml` を指定します。`tests/reports` を事前に作成し、`update.sh` は1つ上の階層に置いてください。3項目のホスト側テストはこの操作では実行されないため、設定の上書き反映は別途確認します。
 

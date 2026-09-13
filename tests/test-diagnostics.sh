@@ -211,6 +211,13 @@ load_config
 finish_config_diagnostics > /tmp/diagnostic.log
 has '[CONFIG] RECOVERED'
 pass 'invalid setting is deduplicated and recovery is logged'
+failure account.2 'ACCOUNT 2' TIMEOUT transient retry > /tmp/diagnostic.log
+awk '/^\[2\]$/ {exit} {print}' /config/mydns.conf > /tmp/error-conf
+cp /tmp/error-conf /config/mydns.conf
+load_config > /tmp/diagnostic.log
+has '[ACCOUNT 2] REMOVED'
+[ ! -f "$WORK_DIR/diagnostic.account.2" ] || fail 'removed account history retained'
+pass 'removed account history is cleared only after valid configuration'
 sed 's/DEBUG=0/DEBUG=yes/' /config/mydns.conf > /tmp/error-conf
 cp /tmp/error-conf /config/mydns.conf
 load_config > /tmp/diagnostic.log 2>&1

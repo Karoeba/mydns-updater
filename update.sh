@@ -71,6 +71,18 @@ config_failure() {
     touch "$WORK_DIR/seen.config.$1" || fatal "[INTERNAL] DIAGNOSTIC_SAVE_FAILED"
     failure "config.$1" CONFIG "$2" "$3" "$4"
 }
+prune_account_diagnostics() {
+    for P_FILE in "$WORK_DIR"/target.account.*; do
+        [ -f "$P_FILE" ] || continue
+        P_SECTION="${P_FILE##*/target.account.}"
+        if ! grep -Fxq "$P_SECTION" "$WORK_DIR/sections"; then
+            log "[INFO] [ACCOUNT $P_SECTION] REMOVED; diagnostic history cleared"
+            rm -f "$P_FILE" "$WORK_DIR/diagnostic.account.$P_SECTION" \
+                "$WORK_DIR/diagnostic.account-config.$P_SECTION"
+        fi
+    done
+}
+
 finish_config_diagnostics() {
     for C_FILE in "$WORK_DIR"/diagnostic.config.*; do
         [ -f "$C_FILE" ] || continue
@@ -308,6 +320,7 @@ load_config() {
     IP_CHECK_URL1="${IP_CHECK_URL1:-https://api.ipify.org}"
     IP_CHECK_URL2="${IP_CHECK_URL2:-https://checkip.amazonaws.com/}"
     IP_CHECK_URL3="${IP_CHECK_URL3:-https://ipv4.ifconfig.me/ip}"
+    prune_account_diagnostics
 }
 
 get_current_ipv4() {
