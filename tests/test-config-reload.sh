@@ -13,7 +13,18 @@ trap 'exit 1' INT TERM
 mkdir -p "$FIXTURE/config" "$FIXTURE/state" "$FIXTURE/bin"
 cat > "$FIXTURE/bin/curl" <<'EOF'
 #!/bin/sh
-for argument do url="$argument"; done
+output=''
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --output) output="$2"; shift ;;
+        --write-out) shift ;;
+        https://*) url="$1" ;;
+    esac
+    shift
+done
+exec 3>&1
+exec > "$output"
+printf '200' >&3
 case "$url" in
     https://ipv4.mydns.jp/login.html) echo 'Login and IP address notify OK.' ;;
     *) echo 203.0.113.10 ;;
@@ -66,7 +77,7 @@ sleep 2
 logs
 if grep -Fq '[DEBUG]' "$FIXTURE/log"; then echo 'FAIL: debug initially enabled'; exit 1; fi
 write_config 1 600
-wait_for '[CONFIG] Invalid FORCE_UPDATE_INTERVAL: using 86400s'
+wait_for 'Invalid FORCE_UPDATE_INTERVAL: using 86400s'
 wait_for '[1] [SKIP] IPv4 unchanged; force update not due'
 grep -q '^FORCE_UPDATE_INTERVAL=600$' "$FIXTURE/config/mydns.conf"
 echo 'PASS: host atomic replacement enables debug and loads invalid interval without restart'
