@@ -31,6 +31,9 @@ jobs:
           docker compose -f tests/compose.yaml run --rm test
           grep -Fxq 'ALL TESTS PASSED' tests/reports/result.txt
 
+      - name: Test host-side configuration replacement
+        run: sh tests/test-config-reload.sh | tee tests/reports/config-reload.log
+
       - name: Save test reports
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -39,6 +42,7 @@ jobs:
           path: |
             tests/reports/test.log
             tests/reports/result.txt
+            tests/reports/config-reload.log
           if-no-files-found: warn
           retention-days: 14
 

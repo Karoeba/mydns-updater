@@ -1,7 +1,8 @@
 #!/bin/sh
 
-VERSION="1.1.1"
-CONFIG="/app/mydns.conf"
+VERSION="1.1.2"
+CONFIG="/config/mydns.conf"
+DEBUG=0
 STATE_DIR="/state"
 STATE_FILE="$STATE_DIR/state.conf"
 TZ="JST-9"
@@ -10,6 +11,11 @@ umask 077
 
 log() {
     printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S JST')" "$*"
+}
+
+debug() {
+    [ "$DEBUG" -eq 1 ] || return 0
+    log "[DEBUG] $*"
 }
 
 WORK_DIR="$(mktemp -d)" || exit 1
@@ -73,6 +79,20 @@ load_config() {
         log "[CONFIG] Cannot read configuration"
         return 1
     }
+    DEBUG="$(get_value "$WORK_DIR/config" '' DEBUG)"
+    case "$DEBUG" in
+        0|1) ;;
+        '')
+            if awk '/^\[/ { exit } /^DEBUG=/ { found=1 } END { exit !found }' "$WORK_DIR/config"; then
+                log "[CONFIG] Invalid DEBUG: using 0"
+            fi
+            DEBUG=0
+            ;;
+        *)
+            log "[CONFIG] Invalid DEBUG: using 0"
+            DEBUG=0
+            ;;
+    esac
     # Restrict section names to unique numeric keys suitable for state storage.
     if ! awk '
         { sub(/\r$/, "") }
@@ -84,6 +104,34 @@ load_config() {
         END { if (!count) exit 1 }
     ' "$WORK_DIR/config" > "$WORK_DIR/sections"; then
         log "[CONFIG] Missing, invalid or duplicate account sections"
+        return 1
+    fi
+    # Prevent active fields below a commented header from leaking into
+    # the previous account, even if that account was missing the same key.
+    if ! awk '
+        { sub(/\r$/, "") }
+        /^\[/ { section=$0; disabled=0; next }
+        /^[[:space:]]*[#;][[:space:]]*\[[^]]+\][[:space:]]*$/ {
+            disabled=1; next
+        }
+        /^[[:space:]]*[#;]/ { next }
+        /^(ID|PASSWORD|DOMAIN)=/ {
+            key=substr($0, 1, index($0, "=")-1)
+            if (disabled) {
+                printf "line %d: active account field below commented section\n", NR
+                exit 1
+            }
+            if (section == "") {
+                printf "line %d: account field outside a section\n", NR
+                exit 1
+            }
+            if (fields[section SUBSEP key]++) {
+                printf "line %d: duplicate %s in %s\n", NR, key, section
+                exit 1
+            }
+        }
+    ' "$WORK_DIR/config" > "$WORK_DIR/config-error"; then
+        log "[CONFIG] $(cat "$WORK_DIR/config-error"); skipping this cycle"
         return 1
     fi
     read_interval CHECK_INTERVAL 60 86400 300
@@ -198,7 +246,9 @@ persist_or_exit() {
 }
 
 run_cycle() {
+    debug "[CHECK] IPv4 check started"
     get_current_ipv4 || return 0
+    debug "[CHECK] IPv4 acquired: $CURRENT_IPV4"
     load_state
     ALL_MATCH=1
     while IFS= read -r SECTION; do
@@ -215,10 +265,19 @@ run_cycle() {
             continue
         fi
 
-        if [ "$ACCOUNT_IP" != "$CURRENT_IPV4" ] ||
-           [ "$LAST_UPDATE" -eq 0 ] ||
-           [ "$LAST_UPDATE" -gt "$NOW" ] ||
-           [ $((NOW - LAST_UPDATE)) -ge "$FORCE_UPDATE_INTERVAL" ]; then
+        UPDATE_REASON=""
+        if [ "$LAST_UPDATE" -eq 0 ] || [ -z "$ACCOUNT_IP" ]; then
+            UPDATE_REASON="account state missing"
+        elif [ "$ACCOUNT_IP" != "$CURRENT_IPV4" ]; then
+            UPDATE_REASON="IPv4 changed"
+        elif [ "$LAST_UPDATE" -gt "$NOW" ]; then
+            UPDATE_REASON="future success timestamp"
+        elif [ $((NOW - LAST_UPDATE)) -ge "$FORCE_UPDATE_INTERVAL" ]; then
+            UPDATE_REASON="force update interval reached"
+        fi
+
+        if [ -n "$UPDATE_REASON" ]; then
+            debug "[$SECTION] [UPDATE] $UPDATE_REASON"
             if RESPONSE="$(curl -4 -fsS --connect-timeout 10 --max-time 30 \
                 -u "$ID:$PASSWORD" https://ipv4.mydns.jp/login.html 2>/dev/null)" &&
                printf '%s\n' "$RESPONSE" | grep -Fq 'Login and IP address notify OK.'; then
@@ -233,6 +292,8 @@ run_cycle() {
                 log "[$DOMAIN] MyDNS update: FAILED"
                 ALL_MATCH=0
             fi
+        else
+            debug "[$SECTION] [SKIP] IPv4 unchanged; force update not due"
         fi
         [ "$ACCOUNT_IP" = "$CURRENT_IPV4" ] || ALL_MATCH=0
     done < "$WORK_DIR/sections"
@@ -249,7 +310,7 @@ while true; do
     CHECK_INTERVAL=300
     if load_config; then
         if [ "$STARTUP_LOGGED" -eq 0 ]; then
-            log "[STARTUP] MyDNS updater v${VERSION} started: CHECK_INTERVAL=${CHECK_INTERVAL}s, FORCE_UPDATE_INTERVAL=${FORCE_UPDATE_INTERVAL}s"
+            log "[STARTUP] MyDNS updater v${VERSION} started: DEBUG=${DEBUG}, CHECK_INTERVAL=${CHECK_INTERVAL}s, FORCE_UPDATE_INTERVAL=${FORCE_UPDATE_INTERVAL}s"
             STARTUP_LOGGED=1
         fi
         run_cycle
