@@ -28,7 +28,7 @@ jobs:
         run: |
           mkdir -p tests/reports
           docker compose -f tests/compose.yaml config --quiet
-          docker compose -f tests/compose.yaml run --rm test
+          docker compose -f tests/compose.yaml run --build --rm test
           grep -Fxq 'ALL TESTS PASSED' tests/reports/result.txt
 
       - name: Test host-side configuration replacement

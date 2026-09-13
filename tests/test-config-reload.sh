@@ -51,6 +51,7 @@ wait_for() {
     echo "FAIL: timed out waiting for $1"
     exit 1
 }
+docker build -t mydns-updater-test:local "$ROOT"
 write_config 0 86400
 CONTAINER="$(docker run -d --network none --user "$(id -u):$(id -g)" \
     -v "$ROOT/update.sh:/app/update.sh:ro" \
@@ -58,7 +59,7 @@ CONTAINER="$(docker run -d --network none --user "$(id -u):$(id -g)" \
     -v "$FIXTURE/state:/state" \
     -v "$FIXTURE/bin:/mock-bin:ro" \
     -e PATH=/mock-bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
-    alpine:latest sh /app/update.sh)"
+    mydns-updater-test:local sh /app/update.sh)"
 STARTED="$(docker inspect -f '{{.State.StartedAt}}' "$CONTAINER")"
 wait_for 'MyDNS update: OK'
 sleep 2

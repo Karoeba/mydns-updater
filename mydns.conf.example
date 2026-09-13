@@ -1,22 +1,31 @@
-# Debug logs: 0=off (default), 1=on
-DEBUG=0
+# 共通設定はアカウント設定より前に記載してください。
 
-# IPv4 check interval in seconds: 60-86400 (default: 300)
+# 更新間隔（秒）
+# IPv4確認後の待機時間: 60〜86400（既定値: 300）
 CHECK_INTERVAL=300
-
-# Force update interval in seconds: 3600-604800 (default: 86400)
+# 前回の通知成功から再通知するまで: 3600〜604800（既定値: 86400）
 FORCE_UPDATE_INTERVAL=86400
 
-# Optional IPv4 check services. Empty/omitted values use these defaults.
+# ログ設定
+# タイムゾーン（既定値: Asia/Tokyo。例: UTC、America/New_York）
+TZ=Asia/Tokyo
+# 詳細ログ: 0=無効（既定値）、1=有効
+DEBUG=0
+
+# IPv4取得先（任意。空欄・省略時は各標準サービスを使用）
 #IP_CHECK_URL1=https://api.ipify.org
 #IP_CHECK_URL2=https://checkip.amazonaws.com/
 #IP_CHECK_URL3=https://ipv4.ifconfig.me/ip
 
+# アカウント設定（ID・PASSWORD・DOMAINはすべて必須）
+# ID: MyDNSのMasterID、PASSWORD: そのパスワード、DOMAIN: ログ表示用
 [1]
 ID=your-master-id
 PASSWORD=your-password
 DOMAIN=example.mydns.jp
 
+# 追加する場合は次の4行すべての先頭の#を外してください。
+# 無効にする場合はセクション行を含む4行すべてに#を付けてください。
 #[2]
 #ID=your-second-master-id
 #PASSWORD=your-second-password
