@@ -66,7 +66,9 @@ PASSWORD=dummy-password
 DOMAIN=test.example
 EOF
 write_config 0 86400
-CONTAINER="$(docker run -d --network none --user "$(id -u):$(id -g)" \
+CONTAINER="$(docker run -d --network none \
+    --health-cmd="sh /app/update.sh --healthcheck" --health-interval=1s \
+    --health-timeout=5s --health-retries=2 --health-start-period=2s --user "$(id -u):$(id -g)" \
     -v "$ROOT/update.sh:/app/update.sh:ro" \
     -v "$FIXTURE/config:/config:ro" \
     -v "$FIXTURE/state:/state" \
@@ -127,3 +129,32 @@ wait_for '[ACCOUNT 2: second.example] MyDNS update: OK'
 [ "$(docker inspect -f '{{.RestartCount}}' "$CONTAINER")" = 0 ]
 echo 'PASS: host atomic account replacement adds an account without restart'
 echo 'ALL CONFIG RELOAD TESTS PASSED (4 checks)'
+
+# Shorten Docker probe intervals in tests; production Compose uses 30s/3 retries.
+wait_health() {
+    attempts=0
+    while [ "$attempts" -lt 30 ]; do
+        status="$(docker inspect -f '{{.State.Health.Status}}' "$CONTAINER")"
+        [ "$status" = "$1" ] && return 0
+        attempts=$((attempts + 1))
+        sleep 1
+    done
+    docker inspect -f '{{json .State.Health}}' "$CONTAINER"
+    echo "FAIL: expected health $1"; exit 1
+}
+wait_health healthy
+echo 'PASS: running updater becomes healthy'
+# Freeze only the updater, then expire its record to avoid a two-minute wait.
+docker exec "$CONTAINER" sh -c 'kill -STOP 1'
+docker exec "$CONTAINER" sh -c '
+    read -r pid stamp deadline < /tmp/mydns-updater.health
+    printf "%s %s 0\n" "$pid" "$stamp" > /tmp/mydns-updater.health
+'
+wait_health unhealthy
+[ "$(docker inspect -f '{{.RestartCount}}' "$CONTAINER")" = 0 ]
+echo 'PASS: stalled progress becomes unhealthy without automatic restart'
+docker exec "$CONTAINER" sh -c 'kill -CONT 1'
+wait_health healthy
+[ "$(docker inspect -f '{{.State.StartedAt}}' "$CONTAINER")" = "$STARTED" ]
+echo 'PASS: resumed updater returns to healthy without restart'
+echo 'ALL DOCKER HEALTHCHECK TESTS PASSED (3 checks)'
