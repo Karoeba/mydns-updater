@@ -157,6 +157,8 @@ cat > /config/mydns.conf <<'EOF'
 DEBUG=0
 CHECK_INTERVAL=300
 FORCE_UPDATE_INTERVAL=3600
+EOF
+cat > /config/accounts.conf <<'EOF'
 [1]
 ID=one
 PASSWORD=dummy
@@ -212,8 +214,8 @@ finish_config_diagnostics > /tmp/diagnostic.log
 has '[CONFIG] RECOVERED'
 pass 'invalid setting is deduplicated and recovery is logged'
 failure account.2 'ACCOUNT 2' TIMEOUT transient retry > /tmp/diagnostic.log
-awk '/^\[2\]$/ {exit} {print}' /config/mydns.conf > /tmp/error-conf
-cp /tmp/error-conf /config/mydns.conf
+awk '/^\[2\]$/ {exit} {print}' /config/accounts.conf > /tmp/error-conf
+cp /tmp/error-conf /config/accounts.conf
 load_config > /tmp/diagnostic.log
 has '[ACCOUNT 2] REMOVED'
 [ ! -f "$WORK_DIR/diagnostic.account.2" ] || fail 'removed account history retained'
