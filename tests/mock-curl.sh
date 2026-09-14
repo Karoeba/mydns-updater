@@ -1,9 +1,21 @@
 #!/bin/sh
 auth=''
 url=''
+output=''
+http=200
+emit() {
+    if [ -n "$output" ]; then
+        cat > "$output"
+        printf '%s' "$http"
+    else
+        cat
+    fi
+}
 while [ "$#" -gt 0 ]; do
     case "$1" in
         -u) auth="$2"; shift ;;
+        --output) output="$2"; shift ;;
+        --write-out) shift ;;
         https://*) url="$1" ;;
     esac
     shift
@@ -20,11 +32,11 @@ if [ "$url" = https://ipv4.mydns.jp/login.html ]; then
             exit 1
         }
     fi
-    [ ! -f "/tmp/mock/fail-$account" ] || exit 22
+    [ ! -f "/tmp/mock/fail-$account" ] || { http=503; printf "" | emit; exit 22; }
     if [ -f "/tmp/mock/reject-$account" ]; then
-        echo 'Login failed'
+        echo 'Login failed' | emit
     else
-        echo 'Login and IP address notify OK.'
+        echo 'Login and IP address notify OK.' | emit
     fi
     exit 0
 fi
@@ -40,7 +52,7 @@ esac
 echo "$service" >> /tmp/mock/checks
 [ ! -f "/tmp/mock/fail-service-$service" ] || exit 28
 if [ -f "/tmp/mock/invalid-service-$service" ]; then
-    echo '999.2.3.4'
+    echo '999.2.3.4' | emit
 else
-    cat /tmp/mock/ip
+    cat /tmp/mock/ip | emit
 fi

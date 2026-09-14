@@ -228,7 +228,7 @@ echo 1705320000 > /tmp/mock/display-epoch
 for zone in '' Mars/Olympus ../etc/passwd /etc/passwd zone.tab Asia 'JST-9' 'UTC;exit'; do
     timezone_config "$zone"
     cycle
-    expect_log '2024-01-15 21:00:00 JST [CONFIG] Invalid TZ: using Asia/Tokyo'
+    expect_log '2024-01-15 21:00:00 JST [WARN] [CONFIG] INVALID_TZ stage=FIRST failures=1 elapsed=0s; Invalid TZ: using Asia/Tokyo'
     expect_log 'TZ=Asia/Tokyo'
 done
 pass 'empty unknown and invalid timezone values fall back safely'
@@ -275,7 +275,7 @@ pass 'debug off and omitted preserve quiet logs'
 for setting in '' 2 yes -1; do
     debug_config "$setting"
     cycle
-    grep -Fq '[CONFIG] Invalid DEBUG: using 0' /tmp/cycle.log || fail 'missing invalid DEBUG warning'
+    grep -Fq 'Invalid DEBUG: using 0' /tmp/cycle.log || fail 'missing invalid DEBUG warning'
     if grep -Fq '[DEBUG]' /tmp/cycle.log; then fail 'invalid debug enabled'; fi
 done
 pass 'invalid debug values warn and disable'
