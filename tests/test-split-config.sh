@@ -11,6 +11,9 @@ fail() { cat /tmp/split.log; echo "FAIL split: $*"; exit 1; }
 baseline() {
     printf 'DEBUG=0\nCHECK_INTERVAL=300\nFORCE_UPDATE_INTERVAL=3600\n' > "$CONFIG"
     printf '[1]\nID=one\nPASSWORD=dummy\nDOMAIN=one.example\n' > "$ACCOUNTS_CONFIG"
+    # Observe a valid reload between independent error scenarios.
+    load_config > /tmp/split.log
+    finish_config_diagnostics >> /tmp/split.log
 }
 cycle() {
     : > /tmp/mock/updates
