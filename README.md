@@ -1,6 +1,6 @@
 # mydns-updater
 
-このブランチはv1.4.0の開発版です。公開済みのリリースは [Releases](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
+このブランチはv1.5.0の開発版です。公開済みのリリースは [Releases](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
 
 MyDNS.JPのIPv4通知を管理するDockerコンテナです。複数アカウントに対応し、IP変更時とアカウントごとの定期更新期限に通知します。
 
@@ -135,7 +135,26 @@ Synology Container Managerでは、ファイルを配置したフォルダーを
 
 IP取得先はIP_CHECK_URL1〜3、MyDNS通知はアカウント番号とログ表示用DOMAINで識別します。curl終了コード・HTTPステータス・固定の原因コードと対処の目安を表示し、URL全文、認証情報、応答本文は記録しません。HTTP 200でも成功応答がなければSUCCESS_NOT_CONFIRMEDとし、認証失敗と断定しません。
 
-失敗履歴は実行中の一時領域に保持し、再起動でリセットします。タイムゾーンや日時変更による誤判定を避けるため、継続時間はシステムの経過時間で測ります。接続先やアカウント設定が変わった場合も対象の履歴をリセットします。アカウント削除や、IPが戻るなどして通知が不要になった場合は履歴を解除し、通信成功による復旧とは区別して表示します。通知成功記録のstate.conf形式と更新・再試行間隔は変更しません。429のRetry-Afterに合わせた待機やHealthcheckは、この版には含めません。
+失敗履歴は実行中の一時領域に保持し、再起動でリセットします。タイムゾーンや日時変更による誤判定を避けるため、継続時間はシステムの経過時間で測ります。接続先やアカウント設定が変わった場合も対象の履歴をリセットします。アカウント削除や、IPが戻るなどして通知が不要になった場合は履歴を解除し、通信成功による復旧とは区別して表示します。通知成功記録のstate.conf形式と更新・再試行間隔は変更しません。429のRetry-Afterに合わせた待機は、この版には含めません。
+
+## Healthcheck
+
+定期処理が進んでいるかをDockerが確認します。外部への追加通信は行いません。
+
+- `starting`：起動後、判定待ち。
+- `healthy`：処理が進んでいる、または次の確認周期まで待機中。
+- `unhealthy`：プロセスが見つからない、進行記録が読めない、または処理の予定時間を超過。
+
+30秒ごとに確認し、3回連続の失敗でunhealthyになります。起動直後の猶予は30秒、確認処理の制限時間は5秒です。待機中はCHECK_INTERVAL、通信中はその通信の制限時間に120秒の余裕を加えて判定します。検出までの時間は停止したタイミングによって変わります。
+
+IP取得先・MyDNSの通信失敗や設定エラーがあっても、確認処理自体が進んでいればhealthyです。通知成功を保証する表示ではないため、原因は通常ログで確認してください。unhealthyになっただけでは自動再起動しません。
+
+```sh
+docker inspect --format '{{.State.Health.Status}}' mydns-updater
+docker inspect --format '{{json .State.Health.Log}}' mydns-updater
+```
+
+進行記録はコンテナ内の一時ファイルで、認証情報は含みません。判定にはシステムの経過時間を使い、TZ変更には影響されません。`state/state.conf` とは別に管理します。
 
 ## State
 
@@ -157,13 +176,18 @@ LAST_UPDATE=1789200000
 
 ## Upgrade
 
+### From v1.4.0
+
+設定とstateを保持して停止し、`update.sh` と `compose.yaml` を新版へ更新してコンテナを再作成します。Healthcheckの設定追加があるため、スクリプトの上書きと再起動だけでは有効になりません。Dockerfileの変更はなく、イメージの再構築は不要です。Container Managerではプロジェクトが使用しているYAMLにも変更を反映してください。
+
+
 ### From v1.1.x–v1.3.0
 
 1. コンテナを停止し、既存の `config/mydns.conf` と `state` をバックアップします。
 2. 既存の `mydns.conf` からアカウントのセクション行・ID・PASSWORD・DOMAINを `config/accounts.conf` へ移します。無効にしているアカウントのコメントも一緒に移します。
 3. `config/mydns.conf` には共通設定だけを残します。更新間隔などは現在の値を引き継いでください。
-4. `update.sh` を新版へ上書きして開始します。既存のフォルダーマウント構成なら、再構築・再作成は不要です。
-5. 起動ログのv1.4.0、設定エラーがないこと、次の更新成功を確認します。
+4. `update.sh` とCompose設定を新版へ更新し、コンテナを再作成します。v1.5.0のHealthcheckも追加するため、再起動だけでは反映されません。
+5. 起動ログのバージョン、設定エラーがないこと、次の更新成功を確認します。
 
 アカウント番号と `state/state.conf` を保持すれば、成功時刻と更新期限を引き継ぎます。サンプルを実設定に上書きしないでください。切り戻す場合は停止し、旧スクリプトとバックアップした旧設定を戻して開始します。
 
@@ -186,7 +210,7 @@ Container Managerでは、プロジェクトが実際に使用しているYAML�
 
 ## Tests
 
-GitHub ActionsはPR作成・更新時とmainへのpush時に、37項目の既存模擬テスト、20項目の診断テスト、10項目の設定分割テストと4項目の設定再読み込みテストを実行します。Actionsの「Docker tests」から手動実行もできます。結果はPRのChecksとActionsログ、成果物 `test-reports`（14日間保存）で確認できます。コンテナ起動前の失敗ではレポートがない場合があります。
+GitHub ActionsはPR作成・更新時とmainへのpush時に、37項目の既存模擬テスト、20項目の診断テスト、10項目の設定分割テスト、11項目のHealthcheckテスト、4項目の設定再読み込みテストと3項目のDocker健康状態遷移テストを実行します。Actionsの「Docker tests」から手動実行もできます。結果はPRのChecksとActionsログ、成果物 `test-reports`（14日間保存）で確認できます。コンテナ起動前の失敗ではレポートがない場合があります。
 
 手元で実行する場合：
 
@@ -197,11 +221,11 @@ docker compose -f tests/compose.yaml run --build --rm test
 sh tests/test-config-reload.sh
 ```
 
-模擬テストは外部通信を無効にし、実アカウントを使いません。初回のイメージ取得には接続が必要です。結果は `tests/reports` に保存され、成功時は `ALL TESTS PASSED (37 checks)` と `ALL DIAGNOSTIC TESTS PASSED (20 checks)`、`ALL SPLIT CONFIG TESTS PASSED (10 checks)` を表示して終了します。途中の失敗ログは異常系テストに含まれるため、最後の結果を確認してください。
+模擬テストは外部通信を無効にし、実アカウントを使いません。初回のイメージ取得には接続が必要です。結果は `tests/reports` に保存され、成功時は `ALL TESTS PASSED (37 checks)` と `ALL DIAGNOSTIC TESTS PASSED (20 checks)`、`ALL SPLIT CONFIG TESTS PASSED (10 checks)`、`ALL HEALTHCHECK TESTS PASSED (11 checks)` を表示して終了します。途中の失敗ログは異常系テストに含まれるため、最後の結果を確認してください。
 
-Container Managerでは、プロジェクトのパスを `tests` フォルダーにし、その中の `compose.yaml` を指定します。`tests/reports` を事前に作成し、`update.sh` は1つ上の階層に置いてください。4項目のホスト側テストはこの操作では実行されないため、設定の上書き反映は別途確認します。
+Container Managerでは、プロジェクトのパスを `tests` フォルダーにし、その中の `compose.yaml` を指定します。`tests/reports` を事前に作成し、`update.sh` は1つ上の階層に置いてください。設定再読み込み4項目と健康状態遷移3項目のホスト側テストはこの操作では実行されないため、設定の上書き反映は別途確認します。
 
-v1.3.0はDS1522+で37項目の既存テスト・20項目の診断テストと、本環境で2アカウントの定期更新を確認済みです。v1.4.0の設定分割は別途実機確認してください。GitHubのテストだけではNAS上の動作は保証されないため、導入先で起動・通信・状態保持を確認してください。テスト失敗時のマージ禁止には別途リポジトリ設定が必要です。
+v1.3.0はDS1522+で37項目の既存テスト・20項目の診断テストと、本環境で2アカウントの定期更新を確認済みです。v1.4.0の設定分割もDS1522+の模擬テストで37+20+10項目の成功を確認済みです。v1.5.0のHealthcheck表示・判定は別途実機確認してください。GitHubのテストだけではNAS上の動作は保証されないため、導入先で起動・通信・状態保持を確認してください。テスト失敗時のマージ禁止には別途リポジトリ設定が必要です。
 
 ## Security and limitations
 

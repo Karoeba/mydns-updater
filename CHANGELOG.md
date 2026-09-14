@@ -1,6 +1,13 @@
 # Changelog
 
-## v1.4.0（開発中）
+## v1.5.0（開発中）
+
+- Docker Healthcheckで定期処理の進行・待機を確認。追加通信は行わず、外部サービスの障害とは区別。
+- CHECK_INTERVALと通信の制限時間に応じて期限を設定し、システムの経過時間で判定。
+- 健康状態確認用のupdate.sh --healthcheckとCompose設定、模擬テスト・Docker状態遷移テストを追加。
+- Healthcheck追加の反映にはコンテナ再作成が必要。イメージ再構築は不要。
+
+## v1.4.0（Release未公開）
 
 - 共通設定をconfig/mydns.conf、アカウント設定をconfig/accounts.confへ分割。
 - 両ファイルの上書き後の再読み込み、構文チェック、ファイル別のエラー表示に対応。
