@@ -1,0 +1,17 @@
+# config/accounts.conf にコピーして自分の情報を設定してください。
+# 実際のID・パスワード入りファイルをGitへ追加しないでください。
+# 共通設定は mydns.conf に記載してください。
+
+# アカウント設定（ID・PASSWORD・DOMAINはすべて必須）
+# ID: MyDNSのMasterID、PASSWORD: そのパスワード、DOMAIN: ログ表示用
+[1]
+ID=your-master-id
+PASSWORD=your-password
+DOMAIN=example.mydns.jp
+
+# 追加する場合は次の4行すべての先頭の#を外してください。
+# 無効にする場合はセクション行を含む4行すべてに#を付けてください。
+#[2]
+#ID=your-second-master-id
+#PASSWORD=your-second-password
+#DOMAIN=example2.mydns.jp

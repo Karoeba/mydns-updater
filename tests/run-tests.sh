@@ -46,6 +46,8 @@ config() {
     cat > /config/mydns.conf <<'EOF'
 CHECK_INTERVAL=300
 FORCE_UPDATE_INTERVAL=86400
+EOF
+    cat > /config/accounts.conf <<'EOF'
 [1]
 ID=one
 PASSWORD=dummy
@@ -296,8 +298,8 @@ pass 'debug identifies initial IP-change and force-update reasons'
 config
 echo 203.0.113.60 > /tmp/mock/ip
 before_two_time="$(value 2 LAST_UPDATE)"
-sed '/^DOMAIN=two.example$/s/^/#/' /config/mydns.conf > /tmp/config
-cp /tmp/config /config/mydns.conf
+sed '/^DOMAIN=two.example$/s/^/#/' /config/accounts.conf > /tmp/config
+cp /tmp/config /config/accounts.conf
 cycle
 eq "$(updates)" 'one,'
 grep -Fq '[2] MyDNS update: CONFIG ERROR' /tmp/cycle.log || fail 'missing account configuration error'
@@ -315,30 +317,30 @@ expect_rejected_config() {
     if grep -Eq 'dummy|one.example|two.example' /tmp/cycle.log; then fail 'configuration contents leaked'; fi
 }
 config
-sed '/^\[2\]$/s/^/#/' /config/mydns.conf > /tmp/config
-cp /tmp/config /config/mydns.conf
+sed '/^\[2\]$/s/^/#/' /config/accounts.conf > /tmp/config
+cp /tmp/config /config/accounts.conf
 expect_rejected_config
 pass 'commented section with three active fields is rejected before any communication'
 config
-sed '/^\[2\]$/s/^/#/;/^ID=two$/s/^/#/;/^PASSWORD=dummy$/s/^/#/' /config/mydns.conf > /tmp/config
-cp /tmp/config /config/mydns.conf
+sed '/^\[2\]$/s/^/#/;/^ID=two$/s/^/#/;/^PASSWORD=dummy$/s/^/#/' /config/accounts.conf > /tmp/config
+cp /tmp/config /config/accounts.conf
 expect_rejected_config
 pass 'commented section with only active domain is rejected'
 for field in ID PASSWORD DOMAIN; do
     config
-    printf '%s=duplicate-value\n' "$field" >> /config/mydns.conf
+    printf '%s=duplicate-value\n' "$field" >> /config/accounts.conf
     expect_rejected_config
     grep -Fq "duplicate $field" /tmp/cycle.log || fail 'missing duplicate key reason'
 done
 pass 'duplicate account keys without a commented header are rejected'
 config
-{ echo 'ID=orphan'; cat /config/mydns.conf; } > /tmp/config
-cp /tmp/config /config/mydns.conf
+{ echo 'ID=orphan'; cat /config/accounts.conf; } > /tmp/config
+cp /tmp/config /config/accounts.conf
 expect_rejected_config
 pass 'account fields before first section are rejected'
 # Fully disabled blocks are valid; a following active header resets the boundary.
 config
-cat >> /config/mydns.conf <<'EOF'
+cat >> /config/accounts.conf <<'EOF'
 #[3]
 #ID=three
 #PASSWORD=dummy

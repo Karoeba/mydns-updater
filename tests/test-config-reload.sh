@@ -41,10 +41,6 @@ write_config() {
 DEBUG=$1
 CHECK_INTERVAL=300
 FORCE_UPDATE_INTERVAL=$2
-[1]
-ID=dummy-account
-PASSWORD=dummy-password
-DOMAIN=test.example
 EOF
     # Host-side rename replaces the inode, as upload tools may do.
     mv -f "$FIXTURE/config/next.conf" "$FIXTURE/config/mydns.conf"
@@ -63,6 +59,12 @@ wait_for() {
     exit 1
 }
 docker build -t mydns-updater-test:local "$ROOT"
+cat > "$FIXTURE/config/accounts.conf" <<'EOF'
+[1]
+ID=dummy-account
+PASSWORD=dummy-password
+DOMAIN=test.example
+EOF
 write_config 0 86400
 CONTAINER="$(docker run -d --network none --user "$(id -u):$(id -g)" \
     -v "$ROOT/update.sh:/app/update.sh:ro" \
@@ -108,4 +110,20 @@ done
 [ "$(docker inspect -f '{{.State.Running}}' "$CONTAINER")" = true ]
 [ "$(docker inspect -f '{{.RestartCount}}' "$CONTAINER")" = 0 ]
 echo 'PASS: changed force interval triggers update in the same running container'
-echo 'ALL CONFIG RELOAD TESTS PASSED (3 checks)'
+# Replace the account file independently in the running container.
+cat > "$FIXTURE/config/accounts.next" <<'EOF'
+[1]
+ID=dummy-account
+PASSWORD=dummy-password
+DOMAIN=test.example
+[2]
+ID=second-dummy-account
+PASSWORD=second-dummy-password
+DOMAIN=second.example
+EOF
+mv -f "$FIXTURE/config/accounts.next" "$FIXTURE/config/accounts.conf"
+wait_for '[ACCOUNT 2: second.example] MyDNS update: OK'
+[ "$(docker inspect -f '{{.State.StartedAt}}' "$CONTAINER")" = "$STARTED" ]
+[ "$(docker inspect -f '{{.RestartCount}}' "$CONTAINER")" = 0 ]
+echo 'PASS: host atomic account replacement adds an account without restart'
+echo 'ALL CONFIG RELOAD TESTS PASSED (4 checks)'

@@ -1,4 +1,5 @@
-# 共通設定はアカウント設定より前に記載してください。
+# 共通設定です。config/mydns.conf にコピーして使用してください。
+# アカウント設定は別ファイル config/accounts.conf に記載してください。
 
 # 更新間隔（秒）
 # IPv4確認後の待機時間: 60〜86400（既定値: 300）
@@ -17,16 +18,3 @@ DEBUG=0
 #IP_CHECK_URL2=https://checkip.amazonaws.com/
 #IP_CHECK_URL3=https://ipv4.ifconfig.me/ip
 
-# アカウント設定（ID・PASSWORD・DOMAINはすべて必須）
-# ID: MyDNSのMasterID、PASSWORD: そのパスワード、DOMAIN: ログ表示用
-[1]
-ID=your-master-id
-PASSWORD=your-password
-DOMAIN=example.mydns.jp
-
-# 追加する場合は次の4行すべての先頭の#を外してください。
-# 無効にする場合はセクション行を含む4行すべてに#を付けてください。
-#[2]
-#ID=your-second-master-id
-#PASSWORD=your-second-password
-#DOMAIN=example2.mydns.jp

@@ -1,7 +1,8 @@
 #!/bin/sh
 
-VERSION="1.3.0"
+VERSION="1.4.0"
 CONFIG="/config/mydns.conf"
+ACCOUNTS_CONFIG="/config/accounts.conf"
 DEBUG=0
 STATE_DIR="/state"
 STATE_FILE="$STATE_DIR/state.conf"
@@ -242,9 +243,23 @@ load_timezone() {
 load_config() {
     rm -f "$WORK_DIR"/seen.config.*
     cp "$CONFIG" "$WORK_DIR/config" 2>/dev/null || {
-        config_failure read READ_FAILED error "Cannot read configuration; check config/mydns.conf, mount and permissions"
+        config_failure read-common READ_FAILED error "Cannot read config/mydns.conf; check file, mount and permissions"
         return 1
     }
+    cp "$ACCOUNTS_CONFIG" "$WORK_DIR/accounts" 2>/dev/null || {
+        config_failure read-accounts READ_FAILED error "Cannot read config/accounts.conf; check file, mount and permissions"
+        return 1
+    }
+    # Validate file roles before applying settings. Never print input values.
+    if ! awk '
+        { sub(/\r$/, "") }
+        /^[[:space:]]*$/ || /^[[:space:]]*[#;]/ { next }
+        /^(CHECK_INTERVAL|FORCE_UPDATE_INTERVAL|TZ|DEBUG|IP_CHECK_URL[123]|INTERVAL)=/ { next }
+        { printf "config/mydns.conf line %d: unexpected setting or account section; move accounts to accounts.conf\n", NR; exit 1 }
+    ' "$WORK_DIR/config" > "$WORK_DIR/config-error"; then
+        config_failure common-structure COMMON_STRUCTURE_INVALID error "$(cat "$WORK_DIR/config-error"); skipping this cycle"
+        return 1
+    fi
     load_timezone
     DEBUG="$(get_value "$WORK_DIR/config" '' DEBUG)"
     case "$DEBUG" in
@@ -271,8 +286,8 @@ load_config() {
             count++
         }
         END { if (!count) exit 1 }
-    ' "$WORK_DIR/config" > "$WORK_DIR/sections"; then
-        config_failure structure SECTIONS_INVALID error "Missing, invalid or duplicate account sections; skipping this cycle; check section numbers"
+    ' "$WORK_DIR/accounts" > "$WORK_DIR/sections"; then
+        config_failure structure SECTIONS_INVALID error "config/accounts.conf: Missing, invalid or duplicate account sections; skipping this cycle; check section numbers"
         return 1
     fi
     # Prevent active fields below a commented header from leaking into
@@ -284,6 +299,7 @@ load_config() {
             disabled=1; next
         }
         /^[[:space:]]*[#;]/ { next }
+        /^[[:space:]]*$/ { next }
         /^(ID|PASSWORD|DOMAIN)=/ {
             key=substr($0, 1, index($0, "=")-1)
             if (disabled) {
@@ -298,9 +314,11 @@ load_config() {
                 printf "line %d: duplicate %s in %s\n", NR, key, section
                 exit 1
             }
+            next
         }
-    ' "$WORK_DIR/config" > "$WORK_DIR/config-error"; then
-        config_failure structure ACCOUNT_STRUCTURE_INVALID error "$(cat "$WORK_DIR/config-error"); skipping this cycle; correct configuration"
+        { printf "line %d: unexpected account setting; common settings belong in mydns.conf\n", NR; exit 1 }
+    ' "$WORK_DIR/accounts" > "$WORK_DIR/config-error"; then
+        config_failure structure ACCOUNT_STRUCTURE_INVALID error "config/accounts.conf: $(cat "$WORK_DIR/config-error"); skipping this cycle; correct configuration"
         return 1
     fi
     read_interval CHECK_INTERVAL 60 86400 300
@@ -429,9 +447,9 @@ run_cycle() {
     load_state
     ALL_MATCH=1
     while IFS= read -r SECTION; do
-        ID="$(get_value "$WORK_DIR/config" "$SECTION" ID)"
-        PASSWORD="$(get_value "$WORK_DIR/config" "$SECTION" PASSWORD)"
-        DOMAIN="$(get_value "$WORK_DIR/config" "$SECTION" DOMAIN)"
+        ID="$(get_value "$WORK_DIR/accounts" "$SECTION" ID)"
+        PASSWORD="$(get_value "$WORK_DIR/accounts" "$SECTION" PASSWORD)"
+        DOMAIN="$(get_value "$WORK_DIR/accounts" "$SECTION" DOMAIN)"
         ACCOUNT_IP="$(cat "$WORK_DIR/ip.$SECTION")"
         LAST_UPDATE="$(cat "$WORK_DIR/time.$SECTION")"
         NOW="$(date +%s)"

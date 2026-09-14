@@ -1,4 +1,5 @@
 mydns.conf
+accounts.conf
 .env
 state/*
 !state/.gitkeep
