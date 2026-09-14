@@ -1,10 +1,13 @@
 # mydns-updater
 
-このブランチはv1.4.0の開発版です。公開済みのリリースは [Releases](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
+このブランチはv1.5.0の開発版（Docker・Linux共通化）です。公開済みのリリースは [Releases](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
 
-MyDNS.JPのIPv4通知を管理するDockerコンテナです。複数アカウントに対応し、IP変更時とアカウントごとの定期更新期限に通知します。
+MyDNS.JPのIPv4通知を管理するスクリプトです。DockerとLinux直接実行で同じプログラムを使います。複数アカウントに対応し、IP変更時とアカウントごとの定期更新期限に通知します。
 
 ## Installation
+
+Dockerでの導入は以下を参照してください。Linuxで直接実行する場合は [Linux導入手順](docs/linux.md) に、必要ソフト・配置・サービス設定・テスト方法をまとめています。
+
 
 DockerとDocker Composeを使用します。リポジトリを取得するか、GitHubのZIPを展開してください。
 
@@ -137,6 +140,10 @@ IP取得先はIP_CHECK_URL1〜3、MyDNS通知はアカウント番号とログ�
 
 失敗履歴は実行中の一時領域に保持し、再起動でリセットします。タイムゾーンや日時変更による誤判定を避けるため、継続時間はシステムの経過時間で測ります。接続先やアカウント設定が変わった場合も対象の履歴をリセットします。アカウント削除や、IPが戻るなどして通知が不要になった場合は履歴を解除し、通信成功による復旧とは区別して表示します。通知成功記録のstate.conf形式と更新・再試行間隔は変更しません。429のRetry-Afterに合わせた待機やHealthcheckは、この版には含めません。
 
+## 実行時の配置先
+
+Dockerでは既存の`/config`と`/state`をそのまま使用します。Linux直接実行では、起動時に`MYDNS_CONFIG_DIR`（設定ディレクトリ）と`MYDNS_STATE_DIR`（状態ディレクトリ）を指定できます。絶対パスを使用し、mydns.confとaccounts.confは同じ設定ディレクトリに置きます。詳細は [Linux導入手順](docs/linux.md#配置先の指定) を参照してください。
+
 ## State
 
 `state/state.conf` は自動管理され、`./state:/state` で永続化されます。
@@ -157,13 +164,18 @@ LAST_UPDATE=1789200000
 
 ## Upgrade
 
+### From v1.4.0
+
+Docker環境では設定・stateを保持し、停止・update.shの上書き・開始で更新できます。既定の配置先とCompose構成は変わりません。Healthcheckは保留中で、この版には含めません。
+
+
 ### From v1.1.x–v1.3.0
 
 1. コンテナを停止し、既存の `config/mydns.conf` と `state` をバックアップします。
 2. 既存の `mydns.conf` からアカウントのセクション行・ID・PASSWORD・DOMAINを `config/accounts.conf` へ移します。無効にしているアカウントのコメントも一緒に移します。
 3. `config/mydns.conf` には共通設定だけを残します。更新間隔などは現在の値を引き継いでください。
 4. `update.sh` を新版へ上書きして開始します。既存のフォルダーマウント構成なら、再構築・再作成は不要です。
-5. 起動ログのv1.4.0、設定エラーがないこと、次の更新成功を確認します。
+5. 起動ログのバージョン、設定エラーがないこと、次の更新成功を確認します。
 
 アカウント番号と `state/state.conf` を保持すれば、成功時刻と更新期限を引き継ぎます。サンプルを実設定に上書きしないでください。切り戻す場合は停止し、旧スクリプトとバックアップした旧設定を戻して開始します。
 
@@ -186,7 +198,7 @@ Container Managerでは、プロジェクトが実際に使用しているYAML�
 
 ## Tests
 
-GitHub ActionsはPR作成・更新時とmainへのpush時に、37項目の既存模擬テスト、20項目の診断テスト、10項目の設定分割テストと4項目の設定再読み込みテストを実行します。Actionsの「Docker tests」から手動実行もできます。結果はPRのChecksとActionsログ、成果物 `test-reports`（14日間保存）で確認できます。コンテナ起動前の失敗ではレポートがない場合があります。
+GitHub ActionsはPR作成・更新時とmainへのpush時に、37項目の既存模擬テスト、20項目の診断テスト、10項目の設定分割テスト、8項目の配置先指定テストと4項目の設定再読み込みテストを実行します。Ubuntu上でもDockerを使わずに8項目の配置先指定テストとサービス定義の検査を実行します。Actionsの「Docker tests」から手動実行もできます。結果はPRのChecksとActionsログ、成果物 `test-reports`（14日間保存）で確認できます。コンテナ起動前の失敗ではレポートがない場合があります。
 
 手元で実行する場合：
 
@@ -197,11 +209,11 @@ docker compose -f tests/compose.yaml run --build --rm test
 sh tests/test-config-reload.sh
 ```
 
-模擬テストは外部通信を無効にし、実アカウントを使いません。初回のイメージ取得には接続が必要です。結果は `tests/reports` に保存され、成功時は `ALL TESTS PASSED (37 checks)` と `ALL DIAGNOSTIC TESTS PASSED (20 checks)`、`ALL SPLIT CONFIG TESTS PASSED (10 checks)` を表示して終了します。途中の失敗ログは異常系テストに含まれるため、最後の結果を確認してください。
+模擬テストは外部通信を無効にし、実アカウントを使いません。初回のイメージ取得には接続が必要です。結果は `tests/reports` に保存され、成功時は `ALL TESTS PASSED (37 checks)` と `ALL DIAGNOSTIC TESTS PASSED (20 checks)`、`ALL SPLIT CONFIG TESTS PASSED (10 checks)`、`ALL LINUX TESTS PASSED (8 checks)` を表示して終了します。途中の失敗ログは異常系テストに含まれるため、最後の結果を確認してください。
 
 Container Managerでは、プロジェクトのパスを `tests` フォルダーにし、その中の `compose.yaml` を指定します。`tests/reports` を事前に作成し、`update.sh` は1つ上の階層に置いてください。4項目のホスト側テストはこの操作では実行されないため、設定の上書き反映は別途確認します。
 
-v1.3.0はDS1522+で37項目の既存テスト・20項目の診断テストと、本環境で2アカウントの定期更新を確認済みです。v1.4.0の設定分割は別途実機確認してください。GitHubのテストだけではNAS上の動作は保証されないため、導入先で起動・通信・状態保持を確認してください。テスト失敗時のマージ禁止には別途リポジトリ設定が必要です。
+v1.3.0はDS1522+で37項目の既存テスト・20項目の診断テストと、本環境で2アカウントの定期更新を確認済みです。v1.4.0の設定分割もDS1522+で37+20+10項目の模擬テストが成功しています。v1.5.0のLinux直接実行とARM機での動作は別途実機確認が必要です。GitHubのテストだけではNAS上の動作は保証されないため、導入先で起動・通信・状態保持を確認してください。テスト失敗時のマージ禁止には別途リポジトリ設定が必要です。
 
 ## Security and limitations
 

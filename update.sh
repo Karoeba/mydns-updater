@@ -1,10 +1,11 @@
 #!/bin/sh
 
-VERSION="1.4.0"
-CONFIG="/config/mydns.conf"
-ACCOUNTS_CONFIG="/config/accounts.conf"
+VERSION="1.5.0"
+CONFIG_DIR="${MYDNS_CONFIG_DIR:-/config}"
+CONFIG="$CONFIG_DIR/mydns.conf"
+ACCOUNTS_CONFIG="$CONFIG_DIR/accounts.conf"
 DEBUG=0
-STATE_DIR="/state"
+STATE_DIR="${MYDNS_STATE_DIR:-/state}"
 STATE_FILE="$STATE_DIR/state.conf"
 DEFAULT_TZ="Asia/Tokyo"
 TZ="$DEFAULT_TZ"
@@ -154,6 +155,10 @@ transport_failure() {
     failure "$1" "$2" "$ERROR_CODE" "$3" \
         "curl=$CURL_CODE http=$SAFE_HTTP; $ERROR_HINT; $4"
 }
+
+# Paths are launch-time options, not values read from the configuration files.
+case "$CONFIG_DIR" in /*) ;; *) fatal "[CONFIG] PATH_INVALID; MYDNS_CONFIG_DIR must be absolute" ;; esac
+case "$STATE_DIR" in /*) ;; *) fatal "[STATE] PATH_INVALID; MYDNS_STATE_DIR must be absolute" ;; esac
 
 WORK_DIR="$(mktemp -d)" || fatal "[INTERNAL] TEMP_CREATE_FAILED; check temporary storage"
 STATE_TMP=""
