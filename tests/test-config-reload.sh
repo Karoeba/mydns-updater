@@ -145,7 +145,7 @@ wait_health() {
 wait_health healthy
 echo 'PASS: running updater becomes healthy'
 # Freeze only the updater, then expire its record to avoid a two-minute wait.
-docker exec "$CONTAINER" sh -c 'kill -STOP 1'
+docker kill --signal=STOP "$CONTAINER" >/dev/null
 docker exec "$CONTAINER" sh -c '
     read -r pid stamp deadline < /tmp/mydns-updater.health
     printf "%s %s 0\n" "$pid" "$stamp" > /tmp/mydns-updater.health
@@ -153,7 +153,7 @@ docker exec "$CONTAINER" sh -c '
 wait_health unhealthy
 [ "$(docker inspect -f '{{.RestartCount}}' "$CONTAINER")" = 0 ]
 echo 'PASS: stalled progress becomes unhealthy without automatic restart'
-docker exec "$CONTAINER" sh -c 'kill -CONT 1'
+docker kill --signal=CONT "$CONTAINER" >/dev/null
 wait_health healthy
 [ "$(docker inspect -f '{{.State.StartedAt}}' "$CONTAINER")" = "$STARTED" ]
 echo 'PASS: resumed updater returns to healthy without restart'
