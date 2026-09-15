@@ -24,7 +24,8 @@ fi
 EOF
 cat > /tmp/test-bin/mv <<'EOF'
 #!/bin/sh
-[ ! -f /tmp/mock/fail-save ] || exit 1
+for destination do :; done
+if [ "$destination" = /state/state.conf ] && [ -f /tmp/mock/fail-save ]; then exit 1; fi
 exec /bin/mv "$@"
 EOF
 chmod +x /tmp/test-bin/*

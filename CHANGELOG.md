@@ -1,6 +1,13 @@
 # Changelog
 
-## v1.5.0（開発中：Docker・Linux共通化）
+## v1.6.0（開発中：Healthcheck）
+
+- Docker・Synology Container Manager向けにHealthcheckを追加。
+- Linux直接実行でも同じ確認コマンドを使用でき、進行記録先を環境変数で指定。
+- プロセス・起動識別・進行期限を確認。追加通信と異常判定による自動再起動は行わない。
+- Linuxサービスでは専用の一時ディレクトリに進行記録を保存。定期監視は未実装。
+
+## v1.5.0（Release未公開：Docker・Linux共通化）
 
 - MYDNS_CONFIG_DIRとMYDNS_STATE_DIRで設定・状態ディレクトリの指定に対応。Dockerの既定配置は維持。
 - Linux直接実行向けの導入手順とsystemdサービス例を追加。

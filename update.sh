@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VERSION="1.5.0"
+VERSION="1.6.0"
 CONFIG_DIR="${MYDNS_CONFIG_DIR:-/config}"
 CONFIG="$CONFIG_DIR/mydns.conf"
 ACCOUNTS_CONFIG="$CONFIG_DIR/accounts.conf"
@@ -11,6 +11,55 @@ DEFAULT_TZ="Asia/Tokyo"
 TZ="$DEFAULT_TZ"
 export TZ
 umask 077
+
+# Local progress only: no network request or configuration/state writes by probes.
+HEALTH_FILE="${MYDNS_HEALTH_FILE:-/tmp/mydns-updater.health}"
+case "$HEALTH_FILE" in /*) ;; *) echo "UNHEALTHY: MYDNS_HEALTH_FILE must be absolute"; exit 1 ;; esac
+HEALTH_ENABLED=0
+health_clock() { awk '{printf "%.0f", $1}' /proc/uptime; }
+health_process_start() {
+    awk '{sub(/^.*\) /, ""); print $20}' "/proc/$1/stat" 2>/dev/null
+}
+health_probe() {
+    H_RECORD="$(cat "$HEALTH_FILE" 2>/dev/null)" || {
+        echo 'UNHEALTHY: progress record unavailable'; return 1
+    }
+    if ! printf '%s\n' "$H_RECORD" | awk '
+        NR != 1 || NF != 4 {exit 1}
+        {for (i=1; i<=3; i++) if ($i !~ /^(0|[1-9][0-9]*)$/ || length($i)>12) exit 1}
+        $4 !~ /^[0-9a-f-]+$/ || length($4)!=36 {exit 1}
+        END {if (NR != 1) exit 1}
+    '; then
+        echo 'UNHEALTHY: invalid progress record'; return 1
+    fi
+    read -r H_PID H_START H_DEADLINE H_BOOT <<EOF
+$H_RECORD
+EOF
+    if [ "$H_BOOT" != "$(cat /proc/sys/kernel/random/boot_id)" ] || [ "$H_PID" -eq 0 ] || ! kill -0 "$H_PID" 2>/dev/null ||
+       [ "$(health_process_start "$H_PID")" != "$H_START" ]; then
+        echo 'UNHEALTHY: updater process unavailable'; return 1
+    fi
+    H_NOW="$(health_clock)" || return 1
+    if [ "$H_NOW" -gt "$H_DEADLINE" ]; then
+        echo 'UNHEALTHY: updater progress overdue'; return 1
+    fi
+    echo 'HEALTHY: updater progressing or waiting'
+}
+# Budget for the next operation, plus a 120-second scheduling/storage margin.
+health_progress() {
+    [ "$HEALTH_ENABLED" -eq 1 ] || return 0
+    H_UNTIL=$(($(health_clock) + $1 + 120))
+    H_TMP="$(mktemp "${HEALTH_FILE}.XXXXXX")" ||
+        fatal "[HEALTH] WRITE_FAILED; check temporary storage"
+    if ! printf '%s %s %s %s\n' "$$" "$HEALTH_START" "$H_UNTIL" "$HEALTH_BOOT" > "$H_TMP" ||
+       ! mv -f "$H_TMP" "$HEALTH_FILE"; then
+        rm -f "$H_TMP"
+        fatal "[HEALTH] WRITE_FAILED; check temporary storage"
+    fi
+}
+case "${1:-}" in
+    --healthcheck) health_probe; exit $? ;;
+esac
 
 log() {
     printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S %Z')" "$*"
@@ -109,6 +158,7 @@ track_target() {
 request() {
     REQUEST_TIMEOUT="$1"
     shift
+    health_progress "$REQUEST_TIMEOUT"
     HTTP_CODE=""
     CURL_CODE=0
     : > "$WORK_DIR/response" || fatal "[INTERNAL] RESPONSE_FILE_FAILED"
@@ -163,6 +213,7 @@ case "$STATE_DIR" in /*) ;; *) fatal "[STATE] PATH_INVALID; MYDNS_STATE_DIR must
 WORK_DIR="$(mktemp -d)" || fatal "[INTERNAL] TEMP_CREATE_FAILED; check temporary storage"
 STATE_TMP=""
 cleanup() {
+    [ "$HEALTH_ENABLED" -ne 1 ] || rm -f "$HEALTH_FILE"
     [ -z "$STATE_TMP" ] || rm -f "$STATE_TMP"
     rm -rf "$WORK_DIR"
 }
@@ -452,6 +503,7 @@ run_cycle() {
     load_state
     ALL_MATCH=1
     while IFS= read -r SECTION; do
+        health_progress 0
         ID="$(get_value "$WORK_DIR/accounts" "$SECTION" ID)"
         PASSWORD="$(get_value "$WORK_DIR/accounts" "$SECTION" PASSWORD)"
         DOMAIN="$(get_value "$WORK_DIR/accounts" "$SECTION" DOMAIN)"
@@ -528,7 +580,11 @@ run_cycle() {
 }
 
 STARTUP_LOGGED=0
+HEALTH_START="$(health_process_start "$$")"
+HEALTH_BOOT="$(cat /proc/sys/kernel/random/boot_id)"
+HEALTH_ENABLED=1
 while true; do
+    health_progress 0
     CHECK_INTERVAL=300
     if load_config; then
         finish_config_diagnostics
@@ -538,5 +594,6 @@ while true; do
         fi
         run_cycle
     fi
+    health_progress "$CHECK_INTERVAL"
     sleep "$CHECK_INTERVAL"
 done
