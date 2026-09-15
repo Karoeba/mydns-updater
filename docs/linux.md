@@ -1,0 +1,317 @@
+# Linuxで直接実行する
+
+Dockerを使わず、同じ `update.sh` を実行できます。以下はUbuntu/Debianとsystemdを使用する例です。
+
+Linux直接実行は実験的な対応です。GitHub Actionsでの模擬テストは行っていますが、作者による実機での動作確認はまだ行っていません。
+
+必要なものはPOSIX sh、curl、CA証明書、tzdata、awkなどの標準コマンド、およびLinuxの `/proc` です。Healthcheckは含みません。
+
+導入前に模擬テストを行い、ファイルを配置した後に実際の通知・設定の再読み込み・再起動を確認します。
+
+## ファイルの配置
+
+ダウンロードして展開したフォルダーは、テストとインストールの作業場所です。運用に必要なファイルを、次の場所へコピーします。
+
+| 配置先 | 役割・コピー元 |
+| --- | --- |
+| `/usr/local/lib/mydns-updater/update.sh` | 実行プログラム。配布ファイルの `update.sh` をコピー |
+| `/etc/mydns-updater/mydns.conf` | 共通設定。`mydns.conf.example` をコピーして編集 |
+| `/etc/mydns-updater/accounts.conf` | アカウント情報。`accounts.conf.example` をコピーして編集 |
+| `/var/lib/mydns-updater/state.conf` | 通知成功の記録。実行中に自動生成 |
+| `/etc/systemd/system/mydns-updater.service` | 常駐・起動の設定。`deploy/linux/mydns-updater.service` をコピー |
+
+設定は `/etc/mydns-updater/`、自動保存する状態は `/var/lib/mydns-updater/` に分けます。新規導入では状態の保存先を空で用意し、`state.conf` を手作業で作る必要はありません。
+
+配布フォルダーの `config/`・`state/` を、そのままLinuxの運用場所にする手順ではありません。`tests/` は作業場所で使用し、上記の配置先へコピーする必要はありません。
+
+以下のコマンドは、展開したフォルダーの直下（`update.sh` がある場所）で順に実行してください。
+
+## 1. 必要なソフトを準備する
+
+使用する版のリポジトリをクローンするか、ZIPを展開します。次のコマンドでは設定編集用のnanoもインストールします。
+
+```sh
+sudo apt update
+sudo apt install curl ca-certificates tzdata nano
+```
+
+## 2. 導入前の模擬テスト
+
+実アカウントを設定する前に実行できます。テスト自体にはDockerもroot権限も不要です。
+
+```sh
+sh tests/test-linux.sh
+```
+
+最後に `ALL LINUX TESTS PASSED (8 checks)` と出れば成功です。配置先の指定、設定の置き換え、状態の引き継ぎ、不正な設定の扱いなどを確認します。
+
+一時ディレクトリと模擬通信を使うため、実アカウントや既存設定には触れません。実際のMyDNSへの通知とサービスの常駐動作は、配置後に確認します。
+
+## 3. ファイルを配置する
+
+### 実行専用ユーザーを作成する
+
+サービスを動かすための `mydns-updater` ユーザーを用意します。
+
+```sh
+getent passwd mydns-updater >/dev/null || sudo useradd --system --user-group --no-create-home --shell /usr/sbin/nologin mydns-updater
+```
+
+### プログラムと保存先を用意する
+
+プログラムをコピーし、設定用・状態保存用のディレクトリを作成します。
+
+```sh
+sudo install -d -m 755 /usr/local/lib/mydns-updater
+sudo install -m 644 update.sh /usr/local/lib/mydns-updater/update.sh
+sudo install -d -o root -g mydns-updater -m 750 /etc/mydns-updater
+sudo install -d -o mydns-updater -g mydns-updater -m 700 /var/lib/mydns-updater
+```
+
+### 設定例をコピーして編集する
+
+次のコピーは初回のみです。既存設定がある場合は上書きせず、その設定を使用してください。
+
+```sh
+sudo install -o root -g mydns-updater -m 640 mydns.conf.example /etc/mydns-updater/mydns.conf
+sudo install -o root -g mydns-updater -m 640 accounts.conf.example /etc/mydns-updater/accounts.conf
+```
+
+コピー先の2つのファイルを編集します。`mydns.conf` に共通設定、`accounts.conf` に各アカウントのID・PASSWORD・DOMAINを記入してください。各項目は後述の「設定ファイル」で説明しています。
+
+```sh
+sudo nano /etc/mydns-updater/mydns.conf
+sudo nano /etc/mydns-updater/accounts.conf
+```
+
+この権限設定ではrootが編集でき、実行ユーザーmydns-updaterが読み取れます。
+
+同じ実アカウントをDocker側と同時に動かさないでください。試験用アカウントを使うか、実通知の確認中だけ既存側を停止します。
+
+## 4. サービスを開始して通知を確認する
+
+`mydns-updater.service` は、Linuxのサービス管理機能であるsystemdに、プログラムの起動方法を伝える設定ファイルです。実行するユーザー、プログラムの場所、設定・状態の保存先、異常終了時の再起動方法を記載しています。
+
+付属のファイルを `/etc/systemd/system/mydns-updater.service` にコピーして使います。この手順の配置先は指定済みなので、通常は内容を変更する必要も、起動のたびに環境変数を入力する必要もありません。
+
+以下の `daemon-reload` はサービス設定の読み直し、`start` はサービスの起動です。OS起動時の自動起動は、手順6で別途有効にします。
+
+```sh
+sudo install -m 644 deploy/linux/mydns-updater.service /etc/systemd/system/mydns-updater.service
+sudo systemctl daemon-reload
+sudo systemctl start mydns-updater
+```
+
+状態とログを表示します。
+
+```sh
+sudo systemctl status mydns-updater --no-pager
+sudo journalctl -u mydns-updater -n 50 --no-pager
+```
+
+確認する項目は次のとおりです。
+
+- サービスが起動し、ログに使用中のバージョンが表示される。
+- 各アカウントに `MyDNS update: OK` が表示される。
+- `/var/lib/mydns-updater/state.conf` が生成される。
+
+`DEBUG=1` なら、周期ごとの確認やスキップもログで確認できます。
+
+## 5. 設定の再読み込みと再起動を確認する
+
+`/etc/mydns-updater/mydns.conf` のDEBUGを変更して保存し、次の確認周期のログを確認します。設定を変更するだけならサービス再起動は不要です。
+
+アップロードで置き換える場合は、ファイルの所有者・グループ・権限も維持してください。
+
+```sh
+sudo journalctl -u mydns-updater -f
+```
+
+ログ表示はCtrl+Cで終了します。サービスは動き続けます。
+
+通知成功後にサービスを再起動し、状態が引き継がれることも確認します。IPが同じで更新期限前なら再通知されません。`DEBUG=1` にしておくと、スキップ理由を確認できます。
+
+```sh
+sudo systemctl restart mydns-updater
+sudo journalctl -u mydns-updater -n 30 --no-pager
+```
+
+## 6. 継続運用する、または試験を終了する
+
+継続運用する場合は、OS起動時の自動起動を有効にします。
+
+```sh
+sudo systemctl enable mydns-updater
+```
+
+試験を終える場合は、サービスを停止し、自動起動も無効にします。
+
+```sh
+sudo systemctl disable --now mydns-updater
+```
+
+試験のためDocker側を停止した場合は、Linux側の停止後にDocker側を再開してください。
+
+## 設定ファイル
+
+共通設定は `/etc/mydns-updater/mydns.conf`、アカウント情報は `/etc/mydns-updater/accounts.conf` に記載します。大文字のキーと半角の `=` を使い、行頭やキーの前後に空白を入れず、値を引用符で囲まないでください。`#` で始まる行はコメントです。
+
+### 設定一覧
+
+| 設定 | 内容 | 既定値・範囲 |
+| --- | --- | --- |
+| **共通設定（mydns.conf）** | | |
+| CHECK_INTERVAL | IPv4確認後の待機時間 | 300秒、60〜86400秒 |
+| FORCE_UPDATE_INTERVAL | 前回の通知成功から再通知するまでの時間 | 86400秒、3600〜604800秒 |
+| TZ | ログのタイムゾーン | Asia/Tokyo |
+| DEBUG | 詳細ログの表示 | 0（無効）、1で有効 |
+| IP_CHECK_URL1〜3 | IPv4取得先 | 下記の標準サービス |
+| **アカウント設定（accounts.conf）** | | |
+| ID | MyDNSのMasterID | アカウントごとに必須 |
+| PASSWORD | MasterIDに対応するパスワード | アカウントごとに必須 |
+| DOMAIN | ログ表示用のドメイン名 | アカウントごとに必須 |
+
+### 更新間隔
+
+`CHECK_INTERVAL` は各周期の処理が終わってから次のIPv4確認まで待つ秒数です。既定値の300では、処理時間を含めて約5分ごとに確認します。
+
+`FORCE_UPDATE_INTERVAL` はIPが変わらなくても再通知する間隔です。アカウントごとの前回成功時刻から数え、期限を過ぎた次の確認周期で通知します。既定値の86400は24時間です。IPが変わった場合は、この期限を待たずに通知します。
+
+範囲外や数字以外の値は警告して既定値を使用します。`FORCE_UPDATE_INTERVAL` が `CHECK_INTERVAL` より短い場合も86400秒へ戻します。
+
+### ログ設定
+
+`TZ` でログの表示時刻を指定します。日本時間は `Asia/Tokyo`、協定世界時は `UTC`、ニューヨークは `America/New_York` です。時刻の後ろにJST・UTC・EST/EDTなどの略称を表示し、夏時間にも対応します。
+
+省略時はAsia/Tokyo、空欄・不正値は警告してAsia/Tokyoを使用します。OSにインストール済みのzoneinfo名を指定してください。絶対パスやPOSIX形式は使用できません。表示時刻を変えても、保存済みの成功時刻と更新期限は変わりません。
+
+通常は起動時のバージョン・実効設定値、通知結果、エラーなどを表示します。IP不変・期限前の周期は、ログが増えなくても正常です。
+
+`DEBUG=1` にすると、IPv4確認開始・取得IP・アカウント番号別の更新理由やスキップ理由も表示します。`DEBUG=0` または省略で無効、不正値は警告して0を使用します。ID・パスワード・認証応答本文は記録しませんが、IPやログ表示用ドメインは表示されます。
+
+### IPv4取得先
+
+通常は変更不要です。次の標準サービスを順に試し、取得失敗・不正なIPv4形式の場合は次へ進みます。すべて失敗した周期は通知も状態変更もしません。
+
+1. `IP_CHECK_URL1`：https://api.ipify.org
+2. `IP_CHECK_URL2`：https://checkip.amazonaws.com/
+3. `IP_CHECK_URL3`：https://ipv4.ifconfig.me/ip
+
+変更する場合は、設定例の該当行の先頭の `#` を外してURLを書き換えます。空欄・省略時は、その番号の標準サービスを使用します。
+
+### アカウント設定
+
+`/etc/mydns-updater/accounts.conf` に記載します。共通設定をこのファイルに入れたり、アカウント設定を `mydns.conf` に残したりしないでください。
+
+`[1]`、`[2]` のように、一意の1〜9桁の数字でアカウントを区切り、その下にID・PASSWORD・DOMAINを記載します。DOMAINはログ表示用ですが、省略できません。
+
+アカウントを追加する場合は、セクション行と3項目の4行をまとめて有効にしてください。無効にする場合も4行すべてをコメントアウトします。空行だけではアカウントの区切りになりません。
+
+- 必須項目が不足したアカウントは `CONFIG ERROR` として通知を見送り、ほかの正常なアカウントは処理します。
+- セクションの欠落・不正・重複、同じセクション内のアカウント項目の重複、最初のセクションより前のアカウント項目、コメントアウトしたセクション行の下に残った有効な項目は構造エラーです。その周期のIP取得と全通知を見送り、状態を変更しません。
+
+どちらかのファイルが読めない場合や、設定先の間違い・未対応のキーがある場合も、その周期のIP取得と全通知を見送ります。旧形式を自動的に読み込む互換処理はありません。
+
+構造エラーは `[CONFIG]` ログにファイル名と理由を表示します。項目の位置や重複のエラーでは行番号も表示し、設定値は表示しません。修正後は次の確認周期で再開します。
+
+
+## ログの見方
+
+### エラーと復旧
+
+通常ログ（DEBUG=0）にも、初回の失敗・原因変更・重要度の段階変更・復旧を表示します。同じ失敗の繰り返しはDEBUG=1でのみ表示します。起動・通知成功は従来どおり表示します。
+
+| 段階 | 通信障害の判定 |
+| --- | --- |
+| FIRST | 最初の失敗。次の対象周期で再試行 |
+| PERSISTENT | 3回以上連続して失敗し、初回から10分以上経過 |
+| PROLONGED | 未復旧のまま初回から1時間以上経過 |
+| RECOVERED | 対象の処理が成功。回数と継続秒数を表示 |
+
+段階の判定はその対象を実際に試した時点で行います。設定エラーや認証・アクセス拒否など確認が必要な失敗は初回からERROR、状態保存など継続不能な失敗はFATALとして終了します。IP取得先ごとの失敗は代替取得先があるためWARNに留め、全取得先の失敗はIP_CHECKとして別に段階判定します。試していない取得先を復旧扱いにはしません。
+
+IP取得先はIP_CHECK_URL1〜3、MyDNS通知はアカウント番号とログ表示用DOMAINで識別します。curl終了コード・HTTPステータス・固定の原因コードと対処の目安を表示し、URL全文、認証情報、応答本文は記録しません。HTTP 200でも成功応答がなければSUCCESS_NOT_CONFIRMEDとし、認証失敗と断定しません。
+
+失敗履歴は実行中の一時領域に保持し、再起動でリセットします。タイムゾーンや日時変更による誤判定を避けるため、継続時間はシステムの経過時間で測ります。接続先やアカウント設定が変わった場合も対象の履歴をリセットします。アカウント削除や、IPが戻るなどして通知が不要になった場合は履歴を解除し、通信成功による復旧とは区別して表示します。通知成功記録のstate.conf形式と更新・再試行間隔は変更しません。429のRetry-Afterに合わせた待機やHealthcheckは、この版には含めません。
+
+
+## 状態の保存
+
+`/var/lib/mydns-updater/state.conf` にアカウントごとの通知成功IPと成功時刻を保存します。再起動後も状態を引き継ぎます。設定ファイルと異なり、スクリプトによる書き込み権限が必要です。
+
+セクション番号は状態の識別子です。別アカウントに番号を再利用するときはサービスを停止し、該当する状態セクションを削除して初回扱いにします。状態の欠落・不正は初回扱いです。状態を読み取れない、または保存できない場合は終了し、この手順のサービス設定では再起動します。
+
+## 配置先を変更する場合
+
+### サービス設定に保存する
+
+通常は、この手順の配置先をそのまま使用できます。変更したい場合は、インストール済みのサービス設定を編集します。
+
+```sh
+sudo nano /etc/systemd/system/mydns-updater.service
+```
+
+`[Service]` 内の次の2行が、設定ファイルと状態ファイルの保存先です。右辺を希望する絶対パスに変更してください。
+
+```ini
+Environment=MYDNS_CONFIG_DIR=/etc/mydns-updater
+Environment=MYDNS_STATE_DIR=/var/lib/mydns-updater
+```
+
+環境変数は、起動時にプログラムへ渡す設定です。このファイルに保存しておけば、サービスの起動・再起動・OS再起動時に毎回同じ値が使われます。`mydns.conf` に記入する項目ではありません。
+
+サービス設定を変更しても、ファイルは自動では移動しません。サービスを停止してから、2つの設定ファイルと既存の状態ファイルを新しい場所へ配置します。
+
+```sh
+sudo systemctl stop mydns-updater
+```
+
+2つの設定ファイルは同じディレクトリに置き、実行ユーザー `mydns-updater` が読み取れる権限を保ちます。状態の保存先には同ユーザーの書き込み権限も必要です。状態ファイルを引き継がない場合は初回扱いになります。
+
+プログラム自体の配置先も変える場合は、同じサービス設定内の次の行も変更します。
+
+```ini
+ExecStart=/bin/sh /usr/local/lib/mydns-updater/update.sh
+```
+
+ファイルの配置と設定の保存を終えたら、サービス設定を読み直して起動します。
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl start mydns-updater
+sudo systemctl status mydns-updater --no-pager
+sudo journalctl -u mydns-updater -n 30 --no-pager
+```
+
+この読み直しと起動は、サービス設定の変更を反映するための操作です。普段の `mydns.conf`・`accounts.conf` の内容変更は、次の確認周期で自動的に読み直します。
+
+### サービスを使わず手動起動する場合
+
+サービス設定は、`sh update.sh` のような直接起動には適用されません。手動起動では、次の環境変数で配置先を渡します。
+
+| 環境変数 | 指定しない場合 | 内容 |
+| --- | --- | --- |
+| MYDNS_CONFIG_DIR | /config | mydns.confとaccounts.confを置くディレクトリ |
+| MYDNS_STATE_DIR | /state | state.confの保存先 |
+
+```sh
+MYDNS_CONFIG_DIR=/etc/mydns-updater MYDNS_STATE_DIR=/var/lib/mydns-updater sh /usr/local/lib/mydns-updater/update.sh
+```
+
+この指定はその起動に対してだけ有効です。継続運用では、上記のサービス設定へ保存する方法を使用してください。
+
+その配置先を読み書きできるユーザーで実行します。サービスと手動実行を同時に起動せず、複数プロセスで同じ状態ディレクトリを共有しないでください。
+
+## 更新
+
+停止してスクリプトを更新し、設定・状態を保持して開始します。サービス定義を変更した場合はdaemon-reloadも実行します。実行プログラムはDocker版と同一です。
+
+systemdの起動・再起動設定は [systemd.service](https://www.freedesktop.org/software/systemd/man/latest/systemd.service.html) を参照してください。
+
+## 検証状況と注意点
+
+GitHub ActionsではUbuntu上でDockerを使わず、配置先指定の8項目とsystemdサービス定義を検査します。ARM機や実際のサービス常駐動作は導入先でも確認してください。
+
+- このプログラムは常駐して周期処理を行います。cronから定期的に重ねて起動しないでください。
+- 実際のaccounts.confとmydns.confはGitへ追加しないでください。公開するのは記入例だけです。
+- IPv4のみ対応します。state.confは通知成功の記録であり、DNS応答の確認ではありません。

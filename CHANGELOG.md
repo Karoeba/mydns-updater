@@ -1,6 +1,13 @@
 # Changelog
 
-## v1.4.0（開発中）
+## v1.5.0（開発中：Docker・Linux共通化）
+
+- MYDNS_CONFIG_DIRとMYDNS_STATE_DIRで設定・状態ディレクトリの指定に対応。Dockerの既定配置は維持。
+- Linux直接実行向けの導入手順とsystemdサービス例を追加。
+- Docker内とUbuntu直接実行で配置先指定の8項目を確認するテストを追加。
+- Healthcheck案は別PRで保留し、この版には含めない。
+
+## v1.4.0（Release未公開）
 
 - 共通設定をconfig/mydns.conf、アカウント設定をconfig/accounts.confへ分割。
 - 両ファイルの上書き後の再読み込み、構文チェック、ファイル別のエラー表示に対応。
