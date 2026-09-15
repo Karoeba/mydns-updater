@@ -8,11 +8,11 @@ MyDNS.JPへIPv4アドレスを自動通知する軽量な常駐ツールです�
 
 Dockerを使わずに動かす [Linux直接実行版](docs/linux.md) も用意しています。Linux版は実験的な対応で、作者による実機での動作確認はまだ行っていません。
 
-現在はv1.6.0の開発版です。公開済みの版は [Releases](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
+現在はv1.6.0の開発版です。公開済みの版は [公開済みリリース](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
 
 ## 事前準備
 
-Docker環境を用意し、このリポジトリをクローンするか、使用するブランチのZIPをダウンロードして展開します。既存環境を更新する場合は [Upgrade](#upgrade) を参照してください。
+Docker環境を用意し、このリポジトリをクローンするか、使用するブランチのZIPをダウンロードして展開します。既存環境を更新する場合は [更新方法](#更新方法) を参照してください。
 
 1. 展開先に `config` と `state` フォルダーを用意します。
 2. `mydns.conf.example` をコピーし、`config/mydns.conf` として保存します。
@@ -80,7 +80,7 @@ docker compose logs -f
 
 [Linux直接実行の導入・運用手順](docs/linux.md) を参照してください。
 
-## Configuration
+## 設定ファイル
 
 共通設定は `config/mydns.conf`、アカウント設定は `config/accounts.conf` に記載します。以下は設定例の順番に説明しています。
 
@@ -172,7 +172,7 @@ ID・パスワード・認証応答本文は記録しませんが、IPやログ�
 
 この動作にはComposeの `./config:/config:ro` によるフォルダーマウントを使用します。ファイルではなくconfigフォルダー自体を入れ替えた場合は、コンテナの再作成が必要です。
 
-## Logs
+## ログの見方
 
 ### エラーと復旧
 
@@ -201,7 +201,7 @@ HTTP 200でも成功応答がなければSUCCESS_NOT_CONFIRMEDとし、認証失
 
 通知成功記録のstate.conf形式と更新・再試行間隔は変更しません。429のRetry-Afterに合わせた待機は、この版には含めません。
 
-## Healthcheck
+## ヘルスチェック
 
 定期処理が停止していないかを、DockerのHealthcheckで確認します。付属のCompose設定を使用すると有効になります。Synology Container Managerも同じ設定を使用します。
 
@@ -219,7 +219,7 @@ docker inspect --format '{{json .State.Health}}' mydns-updater
 
 Linux直接実行での確認方法は [Linux導入手順](docs/linux.md) を参照してください。
 
-## State
+## 状態の保存
 
 `state/state.conf` は自動管理され、`./state:/state` で永続化されます。
 
@@ -243,19 +243,19 @@ LAST_UPDATE=1789200000
 
 1つのstateフォルダーを複数の稼働コンテナで共有しないでください。
 
-## Upgrade
+## 更新方法
 
-### From v1.5.0
+### v1.5.0からの更新
 
 設定とstateを保持し、`update.sh` と `compose.yaml` を更新してコンテナを再作成します。Healthcheck設定の追加は、スクリプトの上書きと再起動だけでは反映されません。
 
 Container Managerではプロジェクトで使用中のYAMLにも変更を反映してください。Dockerfileの変更はないため、イメージの再構築は不要です。
 
-### From v1.4.0
+### v1.4.0からの更新
 
 設定・stateを保持し、上記のv1.5.0からの手順と同様にスクリプト・Compose設定を更新してコンテナを再作成します。
 
-### From v1.1.x–v1.3.0
+### v1.1.x〜v1.3.0からの更新
 
 1. コンテナを停止し、既存の `config/mydns.conf` と `state` をバックアップします。
 2. 既存の `mydns.conf` からアカウントのセクション行・ID・PASSWORD・DOMAINを `config/accounts.conf` へ移します。無効にしているアカウントのコメントも一緒に移します。
@@ -267,7 +267,7 @@ Container Managerではプロジェクトで使用中のYAMLにも変更を反�
 
 切り戻す場合は停止し、旧スクリプトとバックアップした旧設定を戻して開始します。
 
-### From v1.0.0
+### v1.0.0からの更新
 
 1. 旧コンテナを停止し、既存の `mydns.conf` をバックアップします。
 2. 新版のファイルを配置し、共通設定を `config/mydns.conf`、アカウント設定を `config/accounts.conf` に分けて移します。サンプルで認証情報を上書きしないでください。
@@ -276,7 +276,7 @@ Container Managerではプロジェクトで使用中のYAMLにも変更を反�
 
 Container Managerでは、プロジェクトが実際に使用しているYAMLを更新してください。`docker-compose.yml` として保存されている場合があります。
 
-### Subsequent updates
+### 今後の更新
 
 `config` と `state` を保持して更新します。`update.sh` だけの変更は停止・上書き・開始で反映できます。
 
@@ -288,25 +288,25 @@ Composeのマウント変更は再作成、Dockerfileや依存ソフトの変更
 
 既存環境のフォルダー名を変更する場合は、コンテナを停止し、設定と状態をバックアップしてから、新しい配置先でプロジェクトを再作成してください。イメージ名の変更を反映するときは、新しいCompose構成で構築・再作成します。
 
-## Tests
+## テスト
 
 GitHub Actionsで、Docker（Alpine）とLinux直接実行（Ubuntu）の模擬テストを行っています。実際のMyDNS.JPへの通知や、導入先での継続動作は別途確認します。
 
 自動テストの内容と実機での確認方法は [テスト手順](docs/testing.md) を参照してください。
 
-## Security and limitations
+## セキュリティと制限事項
 
 - `accounts.conf` に認証情報を保存します。Gitには設定例だけを掲載し、実設定は追加しないでください。旧形式の認証情報が残る可能性も考慮し、`mydns.conf` も引き続きGitから除外します。両ファイルの実設定・状態・テスト結果はDockerビルドにも含めません。認証情報ファイルへのアクセスは必要な利用者に限定してください。
 - IPv4のみ対応し、通知先は `https://ipv4.mydns.jp/login.html` です。状態ファイルは通知成功の記録であり、DNS応答の検証ではありません。
 - 通知成功と状態保存の間に停止すると再通知する場合があります。IPv4取得から通知までの間の回線IP変化も完全には排除できません。
 
-変更履歴は [CHANGELOG](CHANGELOG.md) を参照してください。
+変更履歴は [変更履歴](CHANGELOG.md) を参照してください。
 
 ## 開発について
 
 ChatGPTを活用して開発しています。
 
-## Disclaimer
+## 免責事項
 
 This project is an unofficial tool and is not affiliated with, endorsed by, or sponsored by MyDNS.JP.
 
