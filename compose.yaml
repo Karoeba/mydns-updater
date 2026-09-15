@@ -9,3 +9,9 @@ services:
       - ./config:/config:ro
       - ./state:/state
     command: ["sh", "/app/update.sh"]
+    healthcheck:
+      test: ["CMD", "sh", "/app/update.sh", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s

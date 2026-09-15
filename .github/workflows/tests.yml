@@ -60,6 +60,8 @@ jobs:
         with:
           persist-credentials: false
       - name: Test without Docker
-        run: sh tests/test-linux.sh
+        run: |
+          sh tests/test-linux.sh
+          sh tests/test-healthcheck-linux.sh
       - name: Validate service unit
         run: systemd-analyze verify deploy/linux/mydns-updater.service

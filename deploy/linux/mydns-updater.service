@@ -7,6 +7,9 @@ After=network-online.target
 Type=simple
 User=mydns-updater
 Group=mydns-updater
+RuntimeDirectory=mydns-updater
+RuntimeDirectoryMode=0700
+Environment=MYDNS_HEALTH_FILE=/run/mydns-updater/health
 Environment=MYDNS_CONFIG_DIR=/etc/mydns-updater
 Environment=MYDNS_STATE_DIR=/var/lib/mydns-updater
 ExecStart=/bin/sh /usr/local/lib/mydns-updater/update.sh

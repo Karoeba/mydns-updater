@@ -8,7 +8,7 @@ MyDNS.JPへIPv4アドレスを自動通知する軽量な常駐ツールです�
 
 Dockerを使わずに動かす [Linux直接実行版](docs/linux.md) も用意しています。Linux版は実験的な対応で、作者による実機での動作確認はまだ行っていません。
 
-現在はv1.5.0の開発版です。公開済みの版は [Releases](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
+現在はv1.6.0の開発版です。公開済みの版は [Releases](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
 
 ## 事前準備
 
@@ -199,7 +199,25 @@ HTTP 200でも成功応答がなければSUCCESS_NOT_CONFIRMEDとし、認証失
 
 接続先やアカウント設定が変わった場合も対象の履歴をリセットします。アカウント削除や、IPが戻るなどして通知が不要になった場合は履歴を解除し、通信成功による復旧とは区別して表示します。
 
-通知成功記録のstate.conf形式と更新・再試行間隔は変更しません。429のRetry-Afterに合わせた待機やHealthcheckは、この版には含めません。
+通知成功記録のstate.conf形式と更新・再試行間隔は変更しません。429のRetry-Afterに合わせた待機は、この版には含めません。
+
+## Healthcheck
+
+定期処理が停止していないかを、DockerのHealthcheckで確認します。付属のCompose設定を使用すると有効になります。Synology Container Managerも同じ設定を使用します。
+
+起動直後は `starting`、確認に成功すると `healthy`、失敗が続くと `unhealthy` になります。30秒ごとに確認し、起動猶予30秒、確認の制限時間5秒、3回連続失敗で異常と判定します。
+
+確認対象はプロセスの存在と処理の進行です。待機時間・通信の制限時間に120秒の余裕を加えて期限を判定します。MyDNS.JPへの通知成功やDNS応答を保証するものではなく、通信・設定エラーがあっても処理が続いていれば正常と判定します。
+
+追加の外部通信は行いません。`unhealthy` だけでは自動再起動しないため、異常時はログを確認してください。
+
+Dockerの確認例：
+
+```sh
+docker inspect --format '{{json .State.Health}}' mydns-updater
+```
+
+Linux直接実行での確認方法は [Linux導入手順](docs/linux.md) を参照してください。
 
 ## State
 
@@ -227,11 +245,15 @@ LAST_UPDATE=1789200000
 
 ## Upgrade
 
+### From v1.5.0
+
+設定とstateを保持し、`update.sh` と `compose.yaml` を更新してコンテナを再作成します。Healthcheck設定の追加は、スクリプトの上書きと再起動だけでは反映されません。
+
+Container Managerではプロジェクトで使用中のYAMLにも変更を反映してください。Dockerfileの変更はないため、イメージの再構築は不要です。
+
 ### From v1.4.0
 
-Docker環境では設定・stateを保持し、停止・update.shの上書き・開始で更新できます。既定の配置先とCompose構成は変わりません。
-
-Healthcheckは保留中で、この版には含めません。
+設定・stateを保持し、上記のv1.5.0からの手順と同様にスクリプト・Compose設定を更新してコンテナを再作成します。
 
 ### From v1.1.x–v1.3.0
 

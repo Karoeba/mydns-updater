@@ -10,8 +10,8 @@ PR作成・更新時とmainへのpush時に、次の2つのジョブを実行し
 
 | ジョブ | 実行環境 | 確認する内容 |
 | --- | --- | --- |
-| Alpine mock tests | Docker（Alpine） | 既存処理37項目、診断20項目、設定分割10項目、配置先指定8項目。加えてLinuxのDockerホスト側から設定の置き換え4項目 |
-| Linux direct execution | Ubuntu 24.04（Docker不使用） | 配置先指定など8項目の模擬テストと、systemdサービス定義の検査 |
+| Alpine mock tests | Docker（Alpine） | 既存処理37項目、診断20項目、設定分割10項目、配置先指定8項目、ヘルスチェック11項目、Linux用ヘルスチェック7項目。加えてLinuxのDockerホスト側から設定の置き換え4項目・健康状態の遷移3項目 |
+| Linux direct execution | Ubuntu 24.04（Docker不使用） | 配置先指定など8項目・ヘルスチェック7項目の模擬テストと、systemdサービス定義の検査 |
 
 配置先指定の8項目は両環境で実行します。Linux側のサービス定義検査は設定ファイルの検査であり、サービスを実際に常駐させる試験ではありません。
 
@@ -38,16 +38,18 @@ docker compose -f tests/compose.yaml run --build --rm test
 
 模擬テスト中の外部通信は無効です。初回のイメージ取得など、構築には接続が必要です。
 
-結果は `tests/reports` に保存され、成功時は次の4つの結果を表示して終了します。
+結果は `tests/reports` に保存され、成功時は次の6つの結果を表示して終了します。
 
 - `ALL TESTS PASSED (37 checks)`
 - `ALL DIAGNOSTIC TESTS PASSED (20 checks)`
 - `ALL SPLIT CONFIG TESTS PASSED (10 checks)`
 - `ALL LINUX TESTS PASSED (8 checks)`
+- `ALL HEALTHCHECK TESTS PASSED (11 checks)`
+- `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`
 
 途中の失敗ログは異常系テストに含まれるため、最後の結果を確認してください。
 
-LinuxのDockerホストでは、設定の置き換えを確認する4項目も追加で実行できます。
+LinuxのDockerホストでは、設定の置き換え4項目とDockerの健康状態遷移3項目も追加で実行できます。
 
 ```sh
 sh tests/test-config-reload.sh
@@ -57,7 +59,7 @@ sh tests/test-config-reload.sh
 
 Container Managerでは、プロジェクトのパスを `tests` フォルダーにし、その中の `compose.yaml` を指定します。`tests/reports` を事前に作成し、`update.sh` は1つ上の階層に置いてください。
 
-成功時の表示は上記のDockerテストと同じです。4項目のホスト側テストはこの操作では実行されないため、設定の上書き反映は運用環境で別途確認します。
+成功時の表示は上記のDockerテストと同じです。7項目のホスト側テストはこの操作では実行されないため、設定の上書き反映は運用環境で別途確認します。
 
 ### Linux直接実行
 
@@ -65,9 +67,10 @@ Container Managerでは、プロジェクトのパスを `tests` フォルダー
 
 ```sh
 sh tests/test-linux.sh
+sh tests/test-healthcheck-linux.sh
 ```
 
-`ALL LINUX TESTS PASSED (8 checks)` と出れば成功です。一時ディレクトリ内で模擬通信を使用し、実アカウントや既存設定には触れません。
+`ALL LINUX TESTS PASSED (8 checks)` と `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)` が出れば成功です。一時ディレクトリ内で模擬通信を使用し、実アカウントや既存設定には触れません。
 
 必要なソフトの準備は [Linux導入手順](linux.md) を参照してください。
 
@@ -82,6 +85,7 @@ Dockerでは [READMEの起動方法](../README.md#起動方法)、Linuxでは [L
 3. 設定ファイルを上書きすると、再起動せずに次の確認周期で反映される。
 4. 再起動後も成功状態を引き継ぎ、IP不変・更新期限前なら通知をスキップする。
 5. 定期更新の期限を過ぎた確認周期で、各アカウントの通知が成功する。
+6. Dockerでは健康状態が `healthy`、Linuxでは導入手順の確認コマンドが `HEALTHY` になる。
 
 `DEBUG=1` にすると確認周期とスキップ理由も表示されます。Linuxではサービスの常駐動作と、必要に応じてOS再起動後の自動起動も確認してください。
 
