@@ -2,6 +2,8 @@
 
 Dockerを使わず、同じ `update.sh` を実行できます。以下はUbuntu/Debianとsystemdを使用する例です。
 
+Linux直接実行は実験的な対応です。GitHub Actionsでの模擬テストは行っていますが、作者による実機での動作確認はまだ行っていません。
+
 必要なものはPOSIX sh、curl、CA証明書、tzdata、awkなどの標準コマンド、およびLinuxの `/proc` です。Healthcheckは含みません。
 
 導入前に模擬テストを行い、ファイルを配置した後に実際の通知・設定の再読み込み・再起動を確認します。
@@ -88,7 +90,11 @@ sudo nano /etc/mydns-updater/accounts.conf
 
 ## 4. サービスを開始して通知を確認する
 
-サービス定義をコピーして読み込み、起動します。この定義には上記の設定・状態の配置先が指定済みなので、環境変数を手動で設定する必要はありません。
+`mydns-updater.service` は、Linuxのサービス管理機能であるsystemdに、プログラムの起動方法を伝える設定ファイルです。実行するユーザー、プログラムの場所、設定・状態の保存先、異常終了時の再起動方法を記載しています。
+
+付属のファイルを `/etc/systemd/system/mydns-updater.service` にコピーして使います。この手順の配置先は指定済みなので、通常は内容を変更する必要も、起動のたびに環境変数を入力する必要もありません。
+
+以下の `daemon-reload` はサービス設定の読み直し、`start` はサービスの起動です。OS起動時の自動起動は、手順6で別途有効にします。
 
 ```sh
 sudo install -m 644 deploy/linux/mydns-updater.service /etc/systemd/system/mydns-updater.service
@@ -235,24 +241,64 @@ IP取得先はIP_CHECK_URL1〜3、MyDNS通知はアカウント番号とログ�
 
 セクション番号は状態の識別子です。別アカウントに番号を再利用するときはサービスを停止し、該当する状態セクションを削除して初回扱いにします。状態の欠落・不正は初回扱いです。状態を読み取れない、または保存できない場合は終了し、この手順のサービス設定では再起動します。
 
-## 配置先の指定
+## 配置先を変更する場合
 
-配置先を変更したい場合は、起動時の環境変数で指定します。mydns.conf内の設定項目ではありません。
+### サービス設定に保存する
 
-この手順のサービス定義では、設定先を `/etc/mydns-updater`、状態の保存先を `/var/lib/mydns-updater` に指定しています。以下の既定値は、環境変数を指定せずに直接起動した場合の値です。
+通常は、この手順の配置先をそのまま使用できます。変更したい場合は、インストール済みのサービス設定を編集します。
 
-| 環境変数 | 既定値 | 内容 |
+```sh
+sudo nano /etc/systemd/system/mydns-updater.service
+```
+
+`[Service]` 内の次の2行が、設定ファイルと状態ファイルの保存先です。右辺を希望する絶対パスに変更してください。
+
+```ini
+Environment=MYDNS_CONFIG_DIR=/etc/mydns-updater
+Environment=MYDNS_STATE_DIR=/var/lib/mydns-updater
+```
+
+環境変数は、起動時にプログラムへ渡す設定です。このファイルに保存しておけば、サービスの起動・再起動・OS再起動時に毎回同じ値が使われます。`mydns.conf` に記入する項目ではありません。
+
+サービス設定を変更しても、ファイルは自動では移動しません。サービスを停止してから、2つの設定ファイルと既存の状態ファイルを新しい場所へ配置します。
+
+```sh
+sudo systemctl stop mydns-updater
+```
+
+2つの設定ファイルは同じディレクトリに置き、実行ユーザー `mydns-updater` が読み取れる権限を保ちます。状態の保存先には同ユーザーの書き込み権限も必要です。状態ファイルを引き継がない場合は初回扱いになります。
+
+プログラム自体の配置先も変える場合は、同じサービス設定内の次の行も変更します。
+
+```ini
+ExecStart=/bin/sh /usr/local/lib/mydns-updater/update.sh
+```
+
+ファイルの配置と設定の保存を終えたら、サービス設定を読み直して起動します。
+
+```sh
+sudo systemctl daemon-reload
+sudo systemctl start mydns-updater
+sudo systemctl status mydns-updater --no-pager
+sudo journalctl -u mydns-updater -n 30 --no-pager
+```
+
+この読み直しと起動は、サービス設定の変更を反映するための操作です。普段の `mydns.conf`・`accounts.conf` の内容変更は、次の確認周期で自動的に読み直します。
+
+### サービスを使わず手動起動する場合
+
+サービス設定は、`sh update.sh` のような直接起動には適用されません。手動起動では、次の環境変数で配置先を渡します。
+
+| 環境変数 | 指定しない場合 | 内容 |
 | --- | --- | --- |
 | MYDNS_CONFIG_DIR | /config | mydns.confとaccounts.confを置くディレクトリ |
 | MYDNS_STATE_DIR | /state | state.confの保存先 |
 
-絶対パスを指定してください。2つの設定ファイルは同じディレクトリに置きます。起動後に環境変数を変更する場合はプロセスの再起動が必要ですが、設定ファイルの内容は周期ごとに読み直します。ディレクトリの値をログには出さないため、読み込みエラー時はこの指定先を確認してください。
-
-任意の配置先で手動起動する例：
-
 ```sh
 MYDNS_CONFIG_DIR=/etc/mydns-updater MYDNS_STATE_DIR=/var/lib/mydns-updater sh /usr/local/lib/mydns-updater/update.sh
 ```
+
+この指定はその起動に対してだけ有効です。継続運用では、上記のサービス設定へ保存する方法を使用してください。
 
 その配置先を読み書きできるユーザーで実行します。サービスと手動実行を同時に起動せず、複数プロセスで同じ状態ディレクトリを共有しないでください。
 
