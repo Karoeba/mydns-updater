@@ -1,26 +1,21 @@
-# mydns-updater
+# MyDNS IPアドレス自動更新ツール
 
-このブランチはv1.5.0の開発版（Docker・Linux共通化）です。公開済みのリリースは [Releases](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
+MyDNS.JPへIPv4アドレスを自動通知する軽量な常駐ツールです。複数アカウントに対応し、IPアドレスが変わったときと、アカウントごとの定期更新期限に通知します。
 
-MyDNS.JPのIPv4通知を管理するスクリプトです。DockerとLinux直接実行で同じプログラムを使います。複数アカウントに対応し、IP変更時とアカウントごとの定期更新期限に通知します。
+このREADMEではDockerでの導入・運用を説明します。コマンドラインのほか、Synology NASのContainer Managerでも使用できます。
 
-## Installation
+現在はv1.5.0の開発版です。公開済みの版は [Releases](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
 
-Dockerでの導入は以下を参照してください。Linuxで直接実行する場合は [Linux導入手順](docs/linux.md) に、必要ソフト・配置・サービス設定・テスト方法をまとめています。
+## 事前準備
 
+Docker環境を用意し、このリポジトリをクローンするか、使用するブランチのZIPをダウンロードして展開します。既存環境を更新する場合は [Upgrade](#upgrade) を参照してください。
 
-DockerとDocker Composeを使用します。リポジトリを取得するか、GitHubのZIPを展開してください。
+1. 展開先に `config` と `state` フォルダーを用意します。
+2. `mydns.conf.example` をコピーし、`config/mydns.conf` として保存します。
+3. `accounts.conf.example` をコピーし、`config/accounts.conf` として保存します。
+4. `accounts.conf` のID・PASSWORD・DOMAINを自分の情報に変更します。
 
-```sh
-git clone https://github.com/Karoeba/mydns-updater.git
-cd mydns-updater
-mkdir -p config state
-cp mydns.conf.example config/mydns.conf
-cp accounts.conf.example config/accounts.conf
-chmod 600 config/accounts.conf
-```
-
-配置する主なファイルは次のとおりです。`config/mydns.conf` と `config/accounts.conf` はそれぞれ設定例をコピーして作成し、`state/state.conf` は起動後に自動生成されます。
+IDはMyDNSのMasterID、PASSWORDはそのパスワード、DOMAINはログ表示用のドメイン名です。3項目すべて必須です。更新間隔などの共通設定は `mydns.conf` で調整します。
 
 ```text
 mydns-updater/
@@ -33,19 +28,47 @@ mydns-updater/
 │   ├── mydns.conf
 │   └── accounts.conf
 └── state/
-    └── state.conf
 ```
 
-`config/mydns.conf` で共通設定を調整し、`config/accounts.conf` のID・PASSWORD・DOMAINを自分の情報に変更します。IDはMyDNSのMasterID、PASSWORDはそのパスワード、DOMAINはログ表示用のドメイン名です。3項目すべて必須です。
+`state/state.conf` は起動後に自動生成されます。設定例は [mydns.conf.example](mydns.conf.example) と [accounts.conf.example](accounts.conf.example) を参照してください。
 
-記入例は [mydns.conf.example](mydns.conf.example) と [accounts.conf.example](accounts.conf.example) を参照してください。
+## 起動方法
+
+準備したファイルを使い、ご利用の環境に合う方法で起動します。
+
+### 汎用Docker環境
+
+Docker Composeを使用します。初回の設定ファイル作成をコマンドで行う場合は、展開先で次を実行します。
+
+```sh
+mkdir -p config state
+cp mydns.conf.example config/mydns.conf
+cp accounts.conf.example config/accounts.conf
+```
+
+すでに設定済みの場合はコピーせず、そのファイルを使用してください。アカウント情報の記入を終えたら、同じディレクトリで起動します。
 
 ```sh
 docker compose up -d --build
 docker compose logs -f
 ```
 
-Synology Container Managerでは、ファイルを配置したフォルダーをプロジェクトのパスにし、ルートの `compose.yaml` を指定して構築・開始します。2つの設定ファイルと `state` フォルダーは事前に作成してください。配置先の例は `/docker/mydns-updater`、プロジェクト名は `mydns-updater` です。フォルダー名にバージョンを含める必要はありません。
+起動ログのバージョンと通知結果を確認します。初回はイメージの構築が必要です。
+
+### Synology NAS（Container Manager）
+
+1. File Stationで、`docker` 共有フォルダー内に `mydns-updater` フォルダーを作ります。
+2. 上記のフォルダー構成を保って、プログラムと設定ファイルをアップロードします。
+3. Container Managerの「プロジェクト」から「作成」を開きます。
+4. プロジェクト名を `mydns-updater`、パスを作成したフォルダーにします。
+5. 配置済みの `compose.yaml` を指定し、画面の案内に従って構築・開始します。
+6. コンテナの「ログ」で、起動バージョンと通知結果を確認します。
+
+配置先の例は `/docker/mydns-updater` です。フォルダー名にバージョンを含める必要はありません。
+
+### Dockerを使わずに実行する場合
+
+[Linux直接実行の導入・運用手順](docs/linux.md) を参照してください。
 
 ## Configuration
 
@@ -140,10 +163,6 @@ IP取得先はIP_CHECK_URL1〜3、MyDNS通知はアカウント番号とログ�
 
 失敗履歴は実行中の一時領域に保持し、再起動でリセットします。タイムゾーンや日時変更による誤判定を避けるため、継続時間はシステムの経過時間で測ります。接続先やアカウント設定が変わった場合も対象の履歴をリセットします。アカウント削除や、IPが戻るなどして通知が不要になった場合は履歴を解除し、通信成功による復旧とは区別して表示します。通知成功記録のstate.conf形式と更新・再試行間隔は変更しません。429のRetry-Afterに合わせた待機やHealthcheckは、この版には含めません。
 
-## 実行時の配置先
-
-Dockerでは既存の`/config`と`/state`をそのまま使用します。Linux直接実行では、起動時に`MYDNS_CONFIG_DIR`（設定ディレクトリ）と`MYDNS_STATE_DIR`（状態ディレクトリ）を指定できます。絶対パスを使用し、mydns.confとaccounts.confは同じ設定ディレクトリに置きます。詳細は [Linux導入手順](docs/linux.md#配置先の指定) を参照してください。
-
 ## State
 
 `state/state.conf` は自動管理され、`./state:/state` で永続化されます。
@@ -167,7 +186,6 @@ LAST_UPDATE=1789200000
 ### From v1.4.0
 
 Docker環境では設定・stateを保持し、停止・update.shの上書き・開始で更新できます。既定の配置先とCompose構成は変わりません。Healthcheckは保留中で、この版には含めません。
-
 
 ### From v1.1.x–v1.3.0
 
@@ -198,7 +216,7 @@ Container Managerでは、プロジェクトが実際に使用しているYAML�
 
 ## Tests
 
-GitHub ActionsはPR作成・更新時とmainへのpush時に、37項目の既存模擬テスト、20項目の診断テスト、10項目の設定分割テスト、8項目の配置先指定テストと4項目の設定再読み込みテストを実行します。Ubuntu上でもDockerを使わずに8項目の配置先指定テストとサービス定義の検査を実行します。Actionsの「Docker tests」から手動実行もできます。結果はPRのChecksとActionsログ、成果物 `test-reports`（14日間保存）で確認できます。コンテナ起動前の失敗ではレポートがない場合があります。
+GitHub ActionsはPR作成・更新時とmainへのpush時に、37項目の既存模擬テスト、20項目の診断テスト、10項目の設定分割テスト、8項目の配置先指定テストと4項目の設定再読み込みテストを実行します。Actionsの「Docker tests」から手動実行もできます。結果はPRのChecksとActionsログ、成果物 `test-reports`（14日間保存）で確認できます。コンテナ起動前の失敗ではレポートがない場合があります。
 
 手元で実行する場合：
 
@@ -213,11 +231,11 @@ sh tests/test-config-reload.sh
 
 Container Managerでは、プロジェクトのパスを `tests` フォルダーにし、その中の `compose.yaml` を指定します。`tests/reports` を事前に作成し、`update.sh` は1つ上の階層に置いてください。4項目のホスト側テストはこの操作では実行されないため、設定の上書き反映は別途確認します。
 
-v1.3.0はDS1522+で37項目の既存テスト・20項目の診断テストと、本環境で2アカウントの定期更新を確認済みです。v1.4.0の設定分割もDS1522+で37+20+10項目の模擬テストが成功しています。v1.5.0のLinux直接実行とARM機での動作は別途実機確認が必要です。GitHubのテストだけではNAS上の動作は保証されないため、導入先で起動・通信・状態保持を確認してください。テスト失敗時のマージ禁止には別途リポジトリ設定が必要です。
+v1.3.0はDS1522+で37項目の既存テスト・20項目の診断テストと、本環境で2アカウントの定期更新を確認済みです。v1.4.0の設定分割もDS1522+で37+20+10項目の模擬テストが成功しています。GitHubのテストだけではNAS上の動作は保証されないため、導入先で起動・通信・状態保持を確認してください。テスト失敗時のマージ禁止には別途リポジトリ設定が必要です。
 
 ## Security and limitations
 
-- `accounts.conf` に認証情報を保存します。Gitには設定例だけを掲載し、実設定は追加しないでください。旧形式の認証情報が残る可能性も考慮し、`mydns.conf` も引き続きGitから除外します。両ファイルの実設定・状態・テスト結果はDockerビルドにも含めません。Linuxでは認証情報ファイルの権限を600とし、NASでもアクセス権を必要な利用者に限定してください。
+- `accounts.conf` に認証情報を保存します。Gitには設定例だけを掲載し、実設定は追加しないでください。旧形式の認証情報が残る可能性も考慮し、`mydns.conf` も引き続きGitから除外します。両ファイルの実設定・状態・テスト結果はDockerビルドにも含めません。認証情報ファイルへのアクセスは必要な利用者に限定してください。
 - IPv4のみ対応し、通知先は `https://ipv4.mydns.jp/login.html` です。状態ファイルは通知成功の記録であり、DNS応答の検証ではありません。
 - 通知成功と状態保存の間に停止すると再通知する場合があります。IPv4取得から通知までの間の回線IP変化も完全には排除できません。
 
