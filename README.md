@@ -1,8 +1,8 @@
-# MyDNS.jp IPアドレス自動更新ツール
+# MyDNS.JP IPアドレス自動更新ツール
 
 [![Docker tests — main](https://github.com/Karoeba/mydns-updater/actions/workflows/tests.yml/badge.svg?branch=main&event=push)](https://github.com/Karoeba/mydns-updater/actions/workflows/tests.yml?query=branch%3Amain+event%3Apush)
 
-MyDNS.jpへIPv4アドレスを自動通知する軽量な常駐ツールです。複数アカウントに対応し、IPアドレスが変わったときと、アカウントごとの定期更新期限に通知します。
+MyDNS.JPへIPv4アドレスを自動通知する軽量な常駐ツールです。複数アカウントに対応し、IPアドレスが変わったときと、アカウントごとの定期更新期限に通知します。
 
 このREADMEではDockerでの導入・運用を説明します。コマンドラインのほか、Synology NASのContainer Managerでも使用できます。
 
@@ -268,7 +268,9 @@ Composeのマウント変更は再作成、Dockerfileや依存ソフトの変更
 
 ## Tests
 
-GitHub Actionsで自動テストを実行しています。実行方法と結果の確認は [テスト手順](docs/testing.md) を参照してください。
+GitHub Actionsで、Docker（Alpine）とLinux直接実行（Ubuntu）の模擬テストを行っています。実際のMyDNS.JPへの通知や、導入先での継続動作は別途確認します。
+
+自動テストの内容と実機での確認方法は [テスト手順](docs/testing.md) を参照してください。
 
 ## Security and limitations
 
