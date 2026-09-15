@@ -32,7 +32,7 @@ Linux直接実行は実験的な対応です。GitHub Actionsでの模擬テス�
 
 ```sh
 sudo apt update
-sudo apt install curl ca-certificates tzdata nano
+sudo apt install curl ca-certificates tzdata nano util-linux coreutils
 ```
 
 ## 2. 導入前の模擬テスト
@@ -249,9 +249,69 @@ sudo -u mydns-updater env MYDNS_HEALTH_FILE=/run/mydns-updater/health sh /usr/lo
 
 判定は追加通信を行いません。待機時間や通信制限時間に120秒の余裕を加えて判断し、通信・設定エラーがあってもループが進行していれば正常です。MyDNS.JPへの通知結果は通常ログで確認してください。
 
-この版のLinuxサービスには、定期的にこのコマンドを呼ぶ監視や、ヘルスチェックによる自動再起動は含めません。`systemctl status` の稼働表示とは別の確認です。必要なときに上記コマンドを実行します。
+上記は手動で1回確認する方法です。`systemctl status` の稼働表示とは別に、処理の進行を確認します。定期的に確認したい場合は、下記のタイマーを有効にしてください。
 
 `MYDNS_HEALTH_FILE` は起動時の環境変数です。指定しない場合は `/tmp/mydns-updater.health` を使います。変更する場合は親ディレクトリを用意し、実行ユーザーの書き込み権限を設定してください。複数のプロセスで同じ進行記録を共有しないでください。
+
+### 定期監視を有効にする
+
+v1.7.0では、systemdのタイマーで約30秒ごとに確認できます。追加するファイルは次の3つです。
+
+| 配布ファイル | 配置先・役割 |
+| --- | --- |
+| `health-monitor.sh` | `/usr/local/lib/mydns-updater/health-monitor.sh`：連続失敗と復旧を判定 |
+| `deploy/linux/mydns-updater-healthcheck.service` | `/etc/systemd/system/`：監視処理の実行方法 |
+| `deploy/linux/mydns-updater-healthcheck.timer` | `/etc/systemd/system/`：監視処理を呼ぶ間隔 |
+
+ここでのserviceは、常駐する更新プログラムとは別に、1回の確認を実行する設定です。タイマーが呼ぶたびに確認し、終了します。
+
+展開したフォルダーの直下でコピーし、タイマーを有効にします。先に手順4で更新サービスを起動してください。
+
+```sh
+sudo install -m 644 health-monitor.sh /usr/local/lib/mydns-updater/health-monitor.sh
+sudo install -m 644 deploy/linux/mydns-updater-healthcheck.service /etc/systemd/system/mydns-updater-healthcheck.service
+sudo install -m 644 deploy/linux/mydns-updater-healthcheck.timer /etc/systemd/system/mydns-updater-healthcheck.timer
+sudo systemctl daemon-reload
+sudo systemctl enable --now mydns-updater-healthcheck.timer
+```
+
+有効にすると、以後は更新サービスの起動に合わせて監視も起動します。OS起動時にも更新サービスを起動するには、手順6の自動起動設定が必要です。
+
+更新サービスを手動で停止するとタイマーも停止します。監視から更新サービスを起動・再起動することはありません。
+
+### 監視結果を確認する
+
+```sh
+sudo systemctl list-timers --all mydns-updater-healthcheck.timer
+sudo journalctl -t mydns-updater-healthcheck --no-pager -n 30
+```
+
+1つ目はタイマーの次回実行時刻、2つ目は監視処理のログを表示します。
+
+- 初回から正常なら、監視処理の独自ログは出しません。
+- 3回連続で確認に失敗すると `[ERROR] [HEALTH_MONITOR] UNHEALTHY` を1回記録します。
+- 異常判定後に確認が成功すると `[INFO] [HEALTH_MONITOR] RECOVERED` を1回記録します。
+- 1〜2回の失敗後に成功した場合は、失敗回数をリセットし、復旧ログは出しません。
+
+30秒は確認を呼ぶ間隔です。更新処理の進行期限には待機時間・通信制限時間と120秒の余裕が含まれるため、処理停止から90秒で必ず異常になるという意味ではありません。
+
+失敗回数は `/run/mydns-updater-monitor/status` に保存します。OS再起動や更新サービスの新しい起動では、それまでの失敗回数を引き継ぎません。監視処理の保存先などに問題がある場合は、監視自体のエラーとして表示します。
+
+systemd自身の起動・終了メッセージまで確認する場合は、次を使います。
+
+```sh
+sudo journalctl -u mydns-updater-healthcheck.service --no-pager -n 30
+```
+
+監視だけを無効にする場合：
+
+```sh
+sudo systemctl disable --now mydns-updater-healthcheck.timer
+```
+
+更新プログラムはそのまま動き続けます。定期監視による自動再起動や外部への通知送信は、この版には含めません。
+
+配置先を独自に変更している場合は、監視サービスの `MYDNS_UPDATER` と `MYDNS_HEALTH_FILE` も更新プログラムと同じ場所に合わせてください。`MYDNS_MONITOR_DIR` は監視履歴の保存先であり、アカウントの状態保存先とは別です。これらは起動時の環境変数で、`mydns.conf` には記入しません。
 
 ## 状態の保存
 
@@ -322,6 +382,8 @@ MYDNS_CONFIG_DIR=/etc/mydns-updater MYDNS_STATE_DIR=/var/lib/mydns-updater sh /u
 
 ## 更新方法
 
+v1.6.0からは、設定・状態を保持してスクリプトを更新し、上記の3ファイルを追加して定期監視を有効にします。通常の更新サービス定義はv1.6.0と同じです。監視スクリプトを更新する際はタイマーと監視サービスを停止してから上書きし、タイマーを再開してください。
+
 v1.5.0からの更新では、スクリプトと付属のサービス定義を更新してください。サービス定義を独自に編集している場合は、その配置先を保持したうえでRuntimeDirectory・RuntimeDirectoryMode・MYDNS_HEALTH_FILEの指定を反映します。
 
 停止してスクリプトを更新し、設定・状態を保持して開始します。サービス定義を変更した場合はdaemon-reloadも実行します。実行プログラムはDocker版と同一です。
@@ -330,7 +392,7 @@ systemdの起動・再起動設定は [systemd.service](https://www.freedesktop.
 
 ## 検証状況と注意点
 
-GitHub ActionsではUbuntu上でDockerを使わず、配置先指定の8項目とsystemdサービス定義を検査します。ARM機や実際のサービス常駐動作は導入先でも確認してください。
+GitHub ActionsではUbuntu上でDockerを使わず、既存の配置先・ヘルスチェックに加え、連続失敗と復旧の判定、systemdによる定期実行・停止連動を確認します。ARM機や実際のサービス常駐動作は導入先でも確認してください。
 
 - このプログラムは常駐して周期処理を行います。cronから定期的に重ねて起動しないでください。
 - 実際のaccounts.confとmydns.confはGitへ追加しないでください。公開するのは記入例だけです。

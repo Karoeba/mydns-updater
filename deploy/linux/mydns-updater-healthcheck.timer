@@ -1,0 +1,12 @@
+[Unit]
+Description=Check MyDNS updater progress every 30 seconds
+PartOf=mydns-updater.service
+
+[Timer]
+OnActiveSec=30s
+OnUnitActiveSec=30s
+AccuracySec=1s
+Unit=mydns-updater-healthcheck.service
+
+[Install]
+WantedBy=mydns-updater.service

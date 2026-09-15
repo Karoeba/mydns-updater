@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VERSION="1.6.0"
+VERSION="1.7.0"
 CONFIG_DIR="${MYDNS_CONFIG_DIR:-/config}"
 CONFIG="$CONFIG_DIR/mydns.conf"
 ACCOUNTS_CONFIG="$CONFIG_DIR/accounts.conf"

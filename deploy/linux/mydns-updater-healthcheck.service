@@ -1,0 +1,19 @@
+[Unit]
+Description=Check MyDNS updater progress
+After=mydns-updater.service
+
+[Service]
+Type=oneshot
+User=mydns-updater
+Group=mydns-updater
+RuntimeDirectory=mydns-updater-monitor
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+Environment=MYDNS_HEALTH_FILE=/run/mydns-updater/health
+Environment=MYDNS_UPDATER=/usr/local/lib/mydns-updater/update.sh
+Environment=MYDNS_MONITOR_DIR=/run/mydns-updater-monitor
+Environment=MYDNS_MONITOR_SERVICE=mydns-updater.service
+ExecStart=/bin/sh /usr/local/lib/mydns-updater/health-monitor.sh --systemd
+TimeoutStartSec=15
+SyslogIdentifier=mydns-updater-healthcheck
+UMask=0077
