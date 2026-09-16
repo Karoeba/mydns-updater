@@ -68,3 +68,44 @@ jobs:
         run: systemd-analyze verify deploy/linux/*.service deploy/linux/*.timer
       - name: Test real systemd scheduling
         run: sudo --preserve-env=GITHUB_ACTIONS sh tests/test-monitor-systemd.sh
+
+  docs:
+    name: Documentation shell syntax
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Check out code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Parse documented shell commands without executing them
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          import subprocess
+          import tempfile
+
+          count = 0
+          failures = []
+          paths = [Path("README.md"), *sorted(Path("docs").rglob("*.md"))]
+          for path in paths:
+              source = path.read_text(encoding="utf-8")
+              for match in re.finditer(r"^```(sh|bash)\n(.*?)^```[ \t]*$", source, re.M | re.S):
+                  count += 1
+                  line = source.count("\n", 0, match.start()) + 1
+                  shells = ["sh", "bash"] if match[1] == "sh" else ["bash"]
+                  with tempfile.NamedTemporaryFile(mode="w", suffix=".sh", encoding="utf-8") as script:
+                      script.write(match[2])
+                      script.flush()
+                      for shell in shells:
+                          result = subprocess.run([shell, "-n", script.name], capture_output=True, text=True)
+                          if result.returncode:
+                              failures.append(f"{path}:{line} ({shell}): {result.stderr.strip()}")
+          for failure in failures:
+              print(failure)
+          print(f"Checked {count} documented shell blocks; failures={len(failures)}")
+          if count == 0 or failures:
+              raise SystemExit(1)
+          PY
