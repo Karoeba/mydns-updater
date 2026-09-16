@@ -63,5 +63,8 @@ jobs:
         run: |
           sh tests/test-linux.sh
           sh tests/test-healthcheck-linux.sh
+          sh tests/test-health-monitor.sh
       - name: Validate service unit
-        run: systemd-analyze verify deploy/linux/mydns-updater.service
+        run: systemd-analyze verify deploy/linux/*.service deploy/linux/*.timer
+      - name: Test real systemd scheduling
+        run: sudo --preserve-env=GITHUB_ACTIONS sh tests/test-monitor-systemd.sh

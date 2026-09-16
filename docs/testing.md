@@ -11,9 +11,9 @@ PR作成・更新時とmainへのpush時に、次の2つのジョブを実行し
 | ジョブ | 実行環境 | 確認する内容 |
 | --- | --- | --- |
 | Alpine mock tests | Docker（Alpine） | 既存処理37項目、診断20項目、設定分割10項目、配置先指定8項目、ヘルスチェック11項目、Linux用ヘルスチェック7項目。加えてLinuxのDockerホスト側から設定の置き換え4項目・健康状態の遷移3項目 |
-| Linux direct execution | Ubuntu 24.04（Docker不使用） | 配置先指定など8項目・ヘルスチェック7項目の模擬テストと、systemdサービス定義の検査 |
+| Linux direct execution | Ubuntu 24.04（Docker不使用） | 配置先指定8項目・ヘルスチェック7項目・監視判定13項目、systemdの定期実行5項目とサービス定義の検査 |
 
-配置先指定の8項目は両環境で実行します。Linux側のサービス定義検査は設定ファイルの検査であり、サービスを実際に常駐させる試験ではありません。
+配置先指定の8項目は両環境で実行します。サービス定義の検査に加え、CI専用の名前と模擬応答を使い、実際のsystemdタイマーで異常・復旧・停止連動を確認します。実アカウントでの常駐運用の確認とは別です。
 
 結果はPRのChecksまたはActionsの各ジョブのログで確認できます。Docker側のレポートは成果物 `test-reports` として14日間保存されます。コンテナ起動前の失敗ではレポートがない場合があります。
 
@@ -68,11 +68,14 @@ Container Managerでは、プロジェクトのパスを `tests` フォルダー
 ```sh
 sh tests/test-linux.sh
 sh tests/test-healthcheck-linux.sh
+sh tests/test-health-monitor.sh
 ```
 
-`ALL LINUX TESTS PASSED (8 checks)` と `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)` が出れば成功です。一時ディレクトリ内で模擬通信を使用し、実アカウントや既存設定には触れません。
+`ALL LINUX TESTS PASSED (8 checks)` と `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`、`ALL MONITOR TESTS PASSED (13 checks)` が出れば成功です。一時ディレクトリ内で模擬通信を使用し、実アカウントや既存設定には触れません。
 
-必要なソフトの準備は [Linux導入手順](linux.md) を参照してください。
+必要なソフトの準備は [Linux導入手順](linux.md) を参照してください。監視テストにはutil-linuxのflockとcoreutilsのtimeoutを使います。
+
+`tests/test-monitor-systemd.sh` は使い捨てのGitHub Actions環境専用です。導入先で実行せず、タイマーの確認にはLinux導入手順を使用してください。
 
 ## 導入先で実際の動作を確認する
 
