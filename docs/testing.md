@@ -29,7 +29,7 @@ GitHubからダウンロードしたコードを、導入先でも模擬テス�
 
 ### Dockerのコマンドライン
 
-展開したフォルダーの直下で実行します。
+展開したフォルダーの直下（ルートの `compose.yaml` がある場所）で実行します。Dockerへアクセスできる権限が必要です。Ubuntuの新規導入では `docker` コマンドの先頭に `sudo` を付けます。
 
 ```sh
 mkdir -p tests/reports
@@ -47,7 +47,7 @@ docker compose -f tests/compose.yaml run --build --rm test
 - `ALL HEALTHCHECK TESTS PASSED (11 checks)`
 - `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`
 
-途中の失敗ログは異常系テストに含まれるため、最後の結果を確認してください。
+途中の失敗ログは異常系テストに含まれるため、6種類すべての最後の結果を確認してください。`tests/reports/result.txt` の `ALL TESTS PASSED` も成功の目印です。構築エラー時に古いレポートが残っている場合があるため、今回の端末表示とファイルの更新日時も確認します。
 
 LinuxのDockerホストでは、設定の置き換え4項目とDockerの健康状態遷移3項目も追加で実行できます。
 
@@ -55,11 +55,13 @@ LinuxのDockerホストでは、設定の置き換え4項目とDockerの健康�
 sh tests/test-config-reload.sh
 ```
 
+Dockerにsudoが必要な環境では `sudo sh tests/test-config-reload.sh` とします。成功時は `ALL CONFIG RELOAD TESTS PASSED (4 checks)` と `ALL DOCKER HEALTHCHECK TESTS PASSED (3 checks)` を表示します。実アカウントは使用しません。ヘルスチェックの待機・検査間隔を短縮し、期限切れも模擬的に作る試験です。
+
 ### Synology Container Manager
 
 Container Managerでは、プロジェクトのパスを `tests` フォルダーにし、その中の `compose.yaml` を指定します。`tests/reports` を事前に作成し、`update.sh` は1つ上の階層に置いてください。
 
-成功時の表示は上記のDockerテストと同じです。7項目のホスト側テストはこの操作では実行されないため、設定の上書き反映は運用環境で別途確認します。
+成功時の表示は上記のDockerテストと同じです。ホスト側の4＋3項目はこの操作では実行されません。設定の上書き反映とContainer Managerでの健康状態の変化は、別途確認します。
 
 ### Linux直接実行
 
@@ -91,6 +93,8 @@ Dockerでは [READMEの起動方法](../README.md#起動方法)、Linuxでは [L
 6. Dockerでは健康状態が `healthy`、Linuxでは導入手順の確認コマンドが `HEALTHY` になる。
 
 `DEBUG=1` にすると確認周期とスキップ理由も表示されます。Linuxではサービスの常駐動作と、必要に応じてOS再起動後の自動起動も確認してください。
+
+UbuntuのDockerコマンドラインで導入から試す場合は [Dockerの動作確認手順](docker-testing.md) を参照してください。Dockerの導入準備、実アカウントの切り替え、通常設定での異常・復旧と記録方法を説明しています。
 
 Linuxでの異常・復旧、停止連動、OS再起動、結果保存は [Linuxの動作確認手順](linux-testing.md) を参照してください。
 

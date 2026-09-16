@@ -14,7 +14,9 @@ Dockerを使わずに動かす [Linux直接実行版](docs/linux.md) も用意�
 
 ## 事前準備
 
-Docker環境を用意し、このリポジトリをクローンするか、使用するブランチのZIPをダウンロードして展開します。既存環境を更新する場合は [更新方法](#更新方法) を参照してください。
+Docker EngineとDocker Compose（`docker compose` コマンド）が使える環境を用意します。Ubuntuで初めて用意する場合は [Dockerの導入手順](docs/reference/ubuntu-docker.md) を参照してください。
+
+このリポジトリをクローンするか、使用するブランチのZIPをダウンロードして展開します。既存環境を更新する場合は [更新方法](#更新方法) を参照してください。
 
 1. 展開先に `config` と `state` フォルダーを用意します。
 2. `mydns.conf.example` をコピーし、`config/mydns.conf` として保存します。
@@ -50,7 +52,9 @@ mydns-updater/
 
 ### 汎用Docker環境
 
-Docker Composeを使用します。初回の設定ファイル作成をコマンドで行う場合は、展開先で次を実行します。
+Docker Composeを使用します。コマンドは `compose.yaml` があるフォルダーで実行します。Dockerへアクセスする権限が必要です。Ubuntuの新規導入などで権限エラーになる場合は、以下の `docker` コマンドに `sudo` を付けて実行してください。
+
+初回の設定ファイル作成をコマンドで行う場合は、展開先で次を実行します。
 
 ```sh
 mkdir -p config state
@@ -65,7 +69,9 @@ docker compose up -d --build
 docker compose logs -f
 ```
 
-起動ログのバージョンと通知結果を確認します。初回はイメージの構築が必要です。
+起動ログのバージョンと通知結果を確認します。初回はイメージの構築が必要です。Ctrl+Cでログ表示を終了してもコンテナは動き続けます。
+
+導入手順を順に試し、設定変更・再起動・ヘルスチェックまで確認する場合は [Dockerの動作確認手順](docs/docker-testing.md) を参照してください。
 
 ### Synology NAS（Container Manager）
 

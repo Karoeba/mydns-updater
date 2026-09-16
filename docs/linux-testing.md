@@ -82,6 +82,7 @@ Ctrl+Cで表示を終了したら、**再起動へ進む前に**記録を保存�
 mkdir -p ~/mydns-test-results
 sudo journalctl -t mydns-updater-healthcheck -b --no-pager > ~/mydns-test-results/monitor-before-reboot.log
 sudo journalctl -u mydns-updater-healthcheck.service -b --no-pager > ~/mydns-test-results/monitor-service-before-reboot.log
+sudo journalctl -u mydns-updater -b --no-pager > ~/mydns-test-results/updater-before-reboot.log
 ```
 
 保存したログにUNHEALTHYとRECOVEREDがあることを確認します。端末に表示された結果も記録してください。再起動後のログ保持は環境によるため、最後にまとめて取得するだけでは試験時の記録が残らない場合があります。
@@ -151,12 +152,12 @@ sudo journalctl -u mydns-updater -b -n 30 --no-pager
 
 ## 6. 結果を保存する
 
-Ubuntuで次を実行します。手順2で保存した再起動前の記録は上書きせず残します。Git以外で取得した場合は最後のコマンドを省略し、使用したZIP名・取得元・版を別に記録してください。
+Ubuntuで次を実行します。この例は試験専用環境を想定し、保持されている対象サービスのログを保存します。手順2で保存した再起動前の記録は上書きせず残します。Git以外で取得した場合は最後のコマンドを省略し、使用したZIP名・取得元・版を別に記録してください。
 
 ```sh
 mkdir -p ~/mydns-test-results
-sudo journalctl -u mydns-updater --since today --no-pager > ~/mydns-test-results/updater.log
-sudo journalctl -t mydns-updater-healthcheck --since today --no-pager > ~/mydns-test-results/monitor.log
+sudo journalctl -u mydns-updater --no-pager > ~/mydns-test-results/updater.log
+sudo journalctl -t mydns-updater-healthcheck --no-pager > ~/mydns-test-results/monitor.log
 sudo systemctl list-timers --all mydns-updater-healthcheck.timer > ~/mydns-test-results/timer.txt
 git -C ~/mydns-updater rev-parse HEAD > ~/mydns-test-results/commit.txt
 ```
