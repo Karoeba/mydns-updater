@@ -37,6 +37,21 @@ v1.8.0の更新サービス設定では、異常終了後も10分待って再起
 systemd側にも1時間に4回までの起動制限を設けます。この4回には初回・手動・自動の起動が含まれます。
 自動復帰の「直近1時間で3回」とは別の制限なので、手動操作などが多い場合は先にこちらの制限に達することがあります。
 
+## 始める前に：Linux版が導入済みか確認する
+
+```sh
+systemctl status mydns-updater.service --no-pager
+```
+
+| 表示 | 進み方 |
+| --- | --- |
+| `Loaded: loaded` と `active (running)` | 手順1へ進む |
+| `Loaded: loaded` と `inactive (dead)` | 導入済みで停止中。手順1へ進む |
+| `could not be found` | 未導入。[Linux導入手順](linux.md)で初回導入と手動ヘルスチェックを済ませてから、ここへ戻る |
+| `failed` | ログを確認して既存の問題を解決してから進む |
+
+Docker版を導入していても、Linux直接実行版のサービスが用意されているとは限りません。
+
 ## 1. 配布ファイルを確認する
 
 以下はLinux側で実行します。開発中の版を試す場合は、GitHubで対象PRのブランチを選んで取得してください。mainにまだ入っていない変更もあるため、バージョンを確認します。
@@ -107,6 +122,8 @@ OS起動時にも更新サービスを起動するには、Linux導入手順の�
 この試験では更新処理を一時停止します。
 同じアカウントを使うNASなどを同時に動かさず、Linuxの端末を閉じずに確認してください。
 
+### 4-1. 正常な状態と起動番号を確認する
+
 まず、現在の起動を識別する番号と正常状態を確認します。
 
 ```sh
@@ -114,7 +131,11 @@ sudo systemctl show mydns-updater --property=InvocationID --value
 sudo -u mydns-updater env MYDNS_HEALTH_FILE=/run/mydns-updater/health sh /usr/local/lib/mydns-updater/update.sh --healthcheck
 ```
 
-番号を控え、`HEALTHY` を確認してから一時停止します。
+番号を控え、`HEALTHY` が表示されたら4-2へ進みます。
+
+### 4-2. 一時停止して自動復帰を待つ
+
+以下で一時停止します。正常な試験ではCONTによる手動再開は行わず、自動復帰を待ちます。
 
 ```sh
 sudo systemctl kill --kill-whom=main --signal=STOP mydns-updater
@@ -125,7 +146,13 @@ sudo journalctl -t mydns-updater-recovery --since '1 minute ago' -f
 ログに `RESTART_ATTEMPT`、`RESTART_REQUESTED`、その後 `RECOVERED` が出るのを待ちます。
 `RESTART_REQUESTED` だけでは、復帰成功とは判断しません。
 
-`RECOVERED` が出たらCtrl+Cでログ表示を終え、もう一度確認します。
+**`RECOVERED` が出たら → 4-3へ進みます。**
+
+**復帰しない、または試験を中断する場合だけ → 下の「困ったときだけ：自動復帰しない・試験を中断する」を開いてください。**
+
+### 4-3. 復帰後の状態を確認する
+
+Ctrl+Cでログ表示を終え、もう一度確認します。
 
 ```sh
 sudo systemctl show mydns-updater --property=InvocationID --value
@@ -138,16 +165,9 @@ sudo systemctl list-timers --all mydns-updater-recovery.timer
 タイマーも継続していることを確認します。
 通知期限前は通知成功ログが増えないことがあります。起動後の確認周期も見たい場合は `DEBUG=1` を使います。
 
-復帰しない場合は、まず一時停止を解除します。
+正常を確認できたら4-4へ進みます。
 
-```sh
-sudo systemctl kill --kill-whom=main --signal=CONT mydns-updater
-sudo systemctl status mydns-updater --no-pager
-sudo journalctl -u mydns-updater-recovery.service --no-pager -n 50
-```
-
-すでにサービスが停止していてCONTを送れない場合は、ログを確認してから手動で起動します。
-短時間に試験を繰り返すと10分待機や回数制限にかかるため、失敗と決めつけずログを確認してください。
+### 4-4. 手動停止したままになることを確認する
 
 最後に、手動停止を尊重することも確認します。
 
@@ -158,7 +178,40 @@ sudo systemctl is-active mydns-updater-recovery.timer
 ```
 
 どちらも `inactive` なら正常です。この確認コマンドはinactiveの場合に終了コードが0以外になります。
-1分ほど待って再確認しても停止したままであることを確認し、運用を続けるなら `sudo systemctl start mydns-updater` で起動します。
+1分ほど待って、次の2行をもう一度実行します。
+
+```sh
+sudo systemctl is-active mydns-updater
+sudo systemctl is-active mydns-updater-recovery.timer
+```
+
+両方が引き続き `inactive` なら、動作確認は完了です。続け方をどちらか選びます。
+
+- **NASなどの運用に戻す：** Linux側は停止したまま、元の環境を起動します。
+- **Linux側で運用を続ける：** 同じアカウントの別環境を停止したまま、`sudo systemctl start mydns-updater` を実行します。
+
+**正常に完了した場合、以下のトラブル対応・制限解除・無効化は実行不要です。**
+
+<details>
+<summary>困ったときだけ：自動復帰しない・試験を中断する</summary>
+
+正常に復帰した場合は、この操作を行いません。
+ログ表示中ならCtrl+Cで終了し、一時停止を解除して状況を確認します。
+
+```sh
+sudo systemctl kill --kill-whom=main --signal=CONT mydns-updater
+sudo systemctl status mydns-updater --no-pager
+sudo journalctl -u mydns-updater-recovery.service --no-pager -n 50
+```
+
+すでにサービスが停止していてCONTを送れない場合は、ログを確認してから手動で起動します。
+短時間に試験を繰り返すと10分待機や回数制限にかかるため、失敗と決めつけずログを確認してください。
+
+
+ここでCONTにより正常へ戻っても、自動復帰の試験に成功したことにはなりません。
+原因を解決してから4-1へ戻るか、更新サービスを停止して試験を終了します。
+
+</details>
 
 ## ログの意味と制限の解除
 
@@ -175,6 +228,11 @@ sudo journalctl -t mydns-updater-recovery --no-pager -n 50
 | BLOCKED / RESTART_LIMIT | 回数上限。原因を調べ、解決後に手動解除 |
 | BLOCKED / CLOCK_MOVED_BACKWARD | 時計が逆戻りした。時刻を確認してから手動解除 |
 | invalid recovery state | 履歴を読めない。保存先・権限を確認し、必要なら手動解除 |
+
+### 制限を解除する必要がある場合だけ
+
+**通常の試験後に実行する手順ではありません。** 上限到達や履歴の問題を確認し、原因を修正した場合だけ実行します。
+再試行を繰り返すために履歴を消さないでください。
 
 原因を確認・修正した後で、制限を解除します。
 先にタイマーと自動復帰サービスを止め、実行中の操作が終わるのを待ちます。
@@ -193,6 +251,8 @@ sudo systemctl start mydns-updater-recovery.timer
 保存先を独自に変えている場合は、この手動コマンドにも `MYDNS_RECOVERY_DIR` の指定が必要です。
 
 ## 無効にする・更新する
+
+**自動復帰を使い続ける場合、この節の操作は不要です。** 無効化またはファイル更新を行うときだけ使います。
 
 自動復帰だけを無効にする場合：
 

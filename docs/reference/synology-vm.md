@@ -98,6 +98,11 @@ ssh tester@192.168.1.50
 
 `tester@mydns-linux-test:~$` のような表示になれば成功です。**以下のコマンドは、このUbuntuへ接続した画面で実行します。NASへのSSH接続ではありません。**
 
+**接続できた場合は、下の対処を飛ばして「次に進む」へ進みます。**
+
+<details>
+<summary>困ったときだけ：SSHで接続できない</summary>
+
 つながらない場合は、VMMの接続画面で次を確認します。
 
 ```sh
@@ -111,6 +116,10 @@ sudo apt update
 sudo apt install openssh-server
 sudo systemctl enable --now ssh
 ```
+
+導入・起動を終えたら、WindowsからのSSH接続を再度試します。接続できてから「次に進む」へ進んでください。
+
+</details>
 
 自宅LANでの接続のために、ルーターのポートをインターネットへ開放する必要はありません。
 
