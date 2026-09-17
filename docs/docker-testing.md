@@ -283,7 +283,7 @@ sudo docker inspect --format '{{.State.Health.Status}}' mydns-updater
 
 ### 7-2. 記録を保存する
 
-再作成や削除の前に保存します。
+テスト結果を後から見直すため、再作成や削除の前に保存します。各ファイルの意味は [保存した記録の見方](#保存した記録の見方) を参照してください。
 
 ```sh
 sudo docker compose logs --no-color > ~/mydns-docker-results/updater.log 2>&1
@@ -330,6 +330,34 @@ scp -r tester@192.168.1.50:~/mydns-docker-results "$HOME\Downloads"
 Ubuntuのパスワードを入力します。完了したらWindowsのダウンロードを開き、mydns-docker-resultsフォルダー内に上記のファイルがあることを確認します。取り直した場合は更新日時も確認してください。
 
 試験用VMも止める場合はUbuntu側で `sudo poweroff` を実行します。継続運用する場合は停止せず、試験用の設定値を戻します。既定値はCHECK_INTERVAL=300、FORCE_UPDATE_INTERVAL=86400、DEBUG=0です。
+
+
+## 保存した記録の見方
+
+記録は「どの環境で、何を確認できたか」を後から見直すために保存します。不具合の相談や、テスト結果をまとめるときにも使えます。プログラムを動かすためのファイルではありません。
+
+Windowsへコピーしたら、ファイルを右クリックしてメモ帳などで開きます。拡張子が `.json` や `.log` でも文字として読めます。長い1行になっている場合は、メモ帳の折り返し表示や検索を使ってください。
+
+| ファイル | 記録していること | 見るところ |
+| --- | --- | --- |
+| updater.log | 起動、IP確認、通知結果など | 日時とアカウント番号を見る。`MyDNS update: OK` は通知成功、`STARTUP` は起動、`SKIP` は更新不要で見送った記録 |
+| health-unhealthy.json | 一時停止して異常になった時点の健康状態と最近の検査結果 | `"Status":"unhealthy"` が異常。`progress overdue` は処理が進まないまま期限を過ぎたという意味 |
+| health-recovered.json | 再開し、正常へ戻った時点の健康状態 | `"Status":"healthy"` と `"FailingStreak":0` を確認。0は連続失敗がないこと |
+| health-final.json | 再起動確認を終えた最後の健康状態 | 同じく `healthy` と連続失敗0を確認 |
+| before.txt・after.txt | 一時停止試験の前後のコンテナID、開始時刻、再起動回数（左から順） | 2つが同じなら、試験の前後でコンテナの作り直しや再起動はない。手順5のdiffで比べられる |
+| docker-version.txt | Dockerのバージョンと実行環境 | ClientとServerのVersion、OS/Archを見る。結果を相談するときの環境情報 |
+| compose-version.txt | Composeのバージョン | `Docker Compose version` の後ろの番号 |
+| commit.txt | 試したコードを特定する番号 | 内容を読み解く必要はない。どのコードで試したかを後から照合するために残す |
+
+まずはupdater.logの日時・OKと、健康状態のStatusを見るだけで十分です。healthyは「処理が進んでいるか正常に待っている」という意味で、通知成功はupdater.logで別に確認します。
+
+**ファイル名だけで成功とは判断しません。** health-recovered.jsonという名前でも、中のStatusがunhealthyなら、保存時点ではまだ異常です。healthyへ戻ったことを画面で確認してから保存し直します。before.txtとafter.txtは、手順6の手動再起動の前に保存した組で比べます。
+
+健康状態の履歴にある時刻の末尾の `Z` はUTCです。日本時間で比べる場合は9時間を足します。updater.logは設定したTZの時刻なので、日本設定ならJSTです。
+
+記録は保存した時点の写しです。今の状態を自動表示するものではありません。また、健康状態のファイルに残る検査履歴は最近の一部だけです。
+
+テスト結果を確認し終えるまではまとめて残しておきます。不要になったらこの記録フォルダーを削除しても動作には影響しません。ただし、運用中のconfigやstateとは別物なので、取り違えないでください。共有する場合はIPやドメイン名を確認し、通常は結果の要約だけで十分です。
 
 ## 確認記録
 
