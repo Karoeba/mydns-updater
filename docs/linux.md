@@ -2,11 +2,23 @@
 
 Dockerを使わず、同じ `update.sh` を実行できます。以下はUbuntu/Debianとsystemdを使用する例です。
 
-Linux直接実行は実験的な対応です。GitHub Actionsでの模擬テストは行っていますが、作者による実機での動作確認はまだ行っていません。
+Ubuntu Server 24.04 LTS（DS1522+上のx86-64 VM）で、v1.7.0の実アカウントによる通知・定期監視・異常検知と復旧・OS再起動後の動作を確認しています。ARM機や他のLinux環境は未検証です。
+
+初めてLinux環境を用意する場合は、[DS1522+でのUbuntu VM構築例](reference/synology-vm.md) を参考にしてください。導入後の詳しい検証は [Linuxの動作確認手順](linux-testing.md) にまとめています。
 
 必要なものはPOSIX sh、curl、CA証明書、tzdata、awkなどの標準コマンド、およびLinuxの `/proc` です。
 
 導入前に模擬テストを行い、ファイルを配置した後に実際の通知・設定の再読み込み・再起動を確認します。
+
+## コマンドの読み方
+
+以下はLinux側の端末で実行します。VMの場合はVMの画面、またはVMへSSH接続した画面を使います。NAS本体の端末ではありません。
+
+- コード枠を1つずつ実行し、結果を確認してから進みます。
+- `sudo` は管理者権限で実行する指定です。入力するのはLinuxのログインユーザーのパスワードです。
+- パスワード入力中に文字が表示されなくても正常です。
+- エラーが出たら、次の操作へ進む前に内容を確認します。
+- `Ctrl+C` でログ表示を終了しても、サービスは動き続けます。
 
 ## ファイルの配置
 
@@ -24,28 +36,46 @@ Linux直接実行は実験的な対応です。GitHub Actionsでの模擬テス�
 
 配布フォルダーの `config/`・`state/` を、そのままLinuxの運用場所にする手順ではありません。`tests/` は作業場所で使用し、上記の配置先へコピーする必要はありません。
 
-以下のコマンドは、展開したフォルダーの直下（`update.sh` がある場所）で順に実行してください。
+手順1でコードを取得した後のコピー・テスト操作は、展開したフォルダーの直下（`update.sh` がある場所）で実行します。インストール後のサービス操作や設定編集は、どのフォルダーからでも実行できます。
 
 ## 1. 必要なソフトを準備する
 
-使用する版のリポジトリをクローンするか、ZIPを展開します。次のコマンドでは設定編集用のnanoもインストールします。
+次のコマンドで、実行・設定編集・取得・監視に必要なソフトをインストールします。
 
 ```sh
 sudo apt update
-sudo apt install curl ca-certificates tzdata nano util-linux coreutils
+sudo apt install curl ca-certificates tzdata git nano util-linux coreutils
 ```
+
+続いてプログラムを取得します。この例はmainの開発版です。公開済みリリースとは異なります。
+
+```sh
+git clone --branch main --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater
+cd mydns-updater
+git rev-parse HEAD
+```
+
+最後に表示される文字列は、取得したコードを識別するコミット番号です。確認記録として残します。同名フォルダーがある場合は上書きせず、中身を確認してください。
+
+ZIPを展開した場合は、その中の `update.sh` があるフォルダーへ移動します。以降の配置操作は、この作業フォルダーから実行します。
 
 ## 2. 導入前の模擬テスト
 
-実アカウントを設定する前に実行できます。テスト自体にはDockerもroot権限も不要です。
+実アカウントや既存設定に触れず、一時ディレクトリと模擬応答で確認します。Dockerもroot権限も不要です。
 
 ```sh
 sh tests/test-linux.sh
+sh tests/test-healthcheck-linux.sh
+sh tests/test-health-monitor.sh
 ```
 
-最後に `ALL LINUX TESTS PASSED (8 checks)` と出れば成功です。配置先の指定、設定の置き換え、状態の引き継ぎ、不正な設定の扱いなどを確認します。
+各コマンドの最後に、それぞれ次の成功表示が出ることを確認します。
 
-一時ディレクトリと模擬通信を使うため、実アカウントや既存設定には触れません。実際のMyDNSへの通知とサービスの常駐動作は、配置後に確認します。
+- `ALL LINUX TESTS PASSED (8 checks)`
+- `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`
+- `ALL MONITOR TESTS PASSED (13 checks)`
+
+監視テストには応答待ちの試験があり、十数秒かかります。テストの詳細は [テスト手順](testing.md) を参照してください。`tests/test-monitor-systemd.sh` は使い捨てのCI環境専用で、導入先では実行しません。
 
 ## 3. ファイルを配置する
 
@@ -84,6 +114,10 @@ sudo nano /etc/mydns-updater/mydns.conf
 sudo nano /etc/mydns-updater/accounts.conf
 ```
 
+nanoは **Ctrl+O → Enterで保存、Ctrl+Xで終了**です。2つ目のアカウントは `[2]` とID・PASSWORD・DOMAINの4行をまとめて有効にします。
+
+通常の運用では設定例の間隔を使用できます。試験用に間隔を短くする場合は [動作確認手順](linux-testing.md) を参照してください。
+
 この権限設定ではrootが編集でき、実行ユーザーmydns-updaterが読み取れます。
 
 同じ実アカウントをDocker側と同時に動かさないでください。試験用アカウントを使うか、実通知の確認中だけ既存側を停止します。
@@ -111,11 +145,13 @@ sudo journalctl -u mydns-updater -n 50 --no-pager
 
 確認する項目は次のとおりです。
 
-- サービスが起動し、ログに使用中のバージョンが表示される。
+- `active (running)` と表示され、ログに使用中のバージョンが表示される。
 - 各アカウントに `MyDNS update: OK` が表示される。
 - `/var/lib/mydns-updater/state.conf` が生成される。
 
 `DEBUG=1` なら、周期ごとの確認やスキップもログで確認できます。
+
+定期監視も導入する場合は、先に [ヘルスチェック](#ヘルスチェック) の手動確認と [定期監視の有効化](#定期監視を有効にする) を行います。正常時の確認を終えたら、以下の手順5へ戻ります。異常・復旧などの詳しい試験は [Linuxの動作確認手順](linux-testing.md) にまとめています。
 
 ## 5. 設定の再読み込みと再起動を確認する
 
@@ -149,6 +185,8 @@ sudo systemctl enable mydns-updater
 ```sh
 sudo systemctl disable --now mydns-updater
 ```
+
+定期監視を導入済みなら、先に `sudo systemctl disable --now mydns-updater-healthcheck.timer` も実行します。確認・記録・切り戻しの順序は [動作確認手順](linux-testing.md) を参照してください。
 
 試験のためDocker側を停止した場合は、Linux側の停止後にDocker側を再開してください。
 
@@ -286,9 +324,11 @@ sudo systemctl list-timers --all mydns-updater-healthcheck.timer
 sudo journalctl -t mydns-updater-healthcheck --no-pager -n 30
 ```
 
-1つ目はタイマーの次回実行時刻、2つ目は監視処理のログを表示します。
+1つ目はタイマーの次回実行時刻、2つ目は監視処理のログを表示します。監視サービスは1回の確認で終了するため、`inactive (dead)` だけで異常とは限りません。
 
-- 初回から正常なら、監視処理の独自ログは出しません。
+異常・復旧を実際に試す場合は [Linuxの動作確認手順](linux-testing.md) を参照してください。
+
+- 初回から正常なら、監視処理の独自ログは出しません。`No entries` だけでは監視処理の成功を確認できないため、下記のサービス実行ログも確認します。
 - 3回連続で確認に失敗すると `[ERROR] [HEALTH_MONITOR] UNHEALTHY` を1回記録します。
 - 異常判定後に確認が成功すると `[INFO] [HEALTH_MONITOR] RECOVERED` を1回記録します。
 - 1〜2回の失敗後に成功した場合は、失敗回数をリセットし、復旧ログは出しません。

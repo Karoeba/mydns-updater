@@ -6,16 +6,19 @@
 
 ## GitHub Actionsによる自動テスト
 
-PR作成・更新時とmainへのpush時に、次の2つのジョブを実行します。Actionsの「Docker tests」から手動実行もできます。このワークフロー名にはDockerとありますが、Linux直接実行のテストも含みます。
+PR作成・更新時とmainへのpush時に、次のジョブを実行します。Actionsの「Docker tests」から手動実行もできます。このワークフロー名にはDockerとありますが、Linux直接実行のテストも含みます。
 
 | ジョブ | 実行環境 | 確認する内容 |
 | --- | --- | --- |
 | Alpine mock tests | Docker（Alpine） | 既存処理37項目、診断20項目、設定分割10項目、配置先指定8項目、ヘルスチェック11項目、Linux用ヘルスチェック7項目。加えてLinuxのDockerホスト側から設定の置き換え4項目・健康状態の遷移3項目 |
+| Documentation shell syntax | Ubuntu 24.04 | READMEとdocs内のsh／bashコード枠を構文検査。記載したコマンドは実行しません |
 | Linux direct execution | Ubuntu 24.04（Docker不使用） | 配置先指定8項目・ヘルスチェック7項目・監視判定13項目、systemdの定期実行5項目とサービス定義の検査 |
 
 配置先指定の8項目は両環境で実行します。サービス定義の検査に加え、CI専用の名前と模擬応答を使い、実際のsystemdタイマーで異常・復旧・停止連動を確認します。実アカウントでの常駐運用の確認とは別です。
 
 結果はPRのChecksまたはActionsの各ジョブのログで確認できます。Docker側のレポートは成果物 `test-reports` として14日間保存されます。コンテナ起動前の失敗ではレポートがない場合があります。
+
+文書の構文検査では、shのコード枠をUbuntuのshとbash、bashのコード枠をbashの `-n` で検査します。引用符やコマンド構文の誤りを検出するもので、インストールの成功、パス・権限の妥当性、手順を通した動作を保証するものではありません。実行場所や操作順は文書の点検と導入先での確認で補います。
 
 ### 結果バッジ
 
@@ -29,7 +32,7 @@ GitHubからダウンロードしたコードを、導入先でも模擬テス�
 
 ### Dockerのコマンドライン
 
-展開したフォルダーの直下で実行します。
+展開したフォルダーの直下（ルートの `compose.yaml` がある場所）で実行します。Dockerへアクセスできる権限が必要です。Ubuntuの新規導入では `docker` コマンドの先頭に `sudo` を付けます。
 
 ```sh
 mkdir -p tests/reports
@@ -47,7 +50,7 @@ docker compose -f tests/compose.yaml run --build --rm test
 - `ALL HEALTHCHECK TESTS PASSED (11 checks)`
 - `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`
 
-途中の失敗ログは異常系テストに含まれるため、最後の結果を確認してください。
+途中の失敗ログは異常系テストに含まれるため、6種類すべての最後の結果を確認してください。`tests/reports/result.txt` の `ALL TESTS PASSED` も成功の目印です。構築エラー時に古いレポートが残っている場合があるため、今回の端末表示とファイルの更新日時も確認します。
 
 LinuxのDockerホストでは、設定の置き換え4項目とDockerの健康状態遷移3項目も追加で実行できます。
 
@@ -55,11 +58,13 @@ LinuxのDockerホストでは、設定の置き換え4項目とDockerの健康�
 sh tests/test-config-reload.sh
 ```
 
+Dockerにsudoが必要な環境では `sudo sh tests/test-config-reload.sh` とします。成功時は `ALL CONFIG RELOAD TESTS PASSED (4 checks)` と `ALL DOCKER HEALTHCHECK TESTS PASSED (3 checks)` を表示します。実アカウントは使用しません。ヘルスチェックの待機・検査間隔を短縮し、期限切れも模擬的に作る試験です。
+
 ### Synology Container Manager
 
 Container Managerでは、プロジェクトのパスを `tests` フォルダーにし、その中の `compose.yaml` を指定します。`tests/reports` を事前に作成し、`update.sh` は1つ上の階層に置いてください。
 
-成功時の表示は上記のDockerテストと同じです。7項目のホスト側テストはこの操作では実行されないため、設定の上書き反映は運用環境で別途確認します。
+成功時の表示は上記のDockerテストと同じです。ホスト側の4＋3項目はこの操作では実行されません。設定の上書き反映とContainer Managerでの健康状態の変化は、別途確認します。
 
 ### Linux直接実行
 
@@ -92,8 +97,14 @@ Dockerでは [READMEの起動方法](../README.md#起動方法)、Linuxでは [L
 
 `DEBUG=1` にすると確認周期とスキップ理由も表示されます。Linuxではサービスの常駐動作と、必要に応じてOS再起動後の自動起動も確認してください。
 
+UbuntuのDockerコマンドラインで導入から試す場合は [Dockerの動作確認手順](docker-testing.md) を参照してください。Dockerの導入準備、実アカウントの切り替え、通常設定での異常・復旧と記録方法を説明しています。
+
+Linuxでの異常・復旧、停止連動、OS再起動、結果保存は [Linuxの動作確認手順](linux-testing.md) を参照してください。
+
 ### 作者による確認状況
 
 v1.3.0はDS1522+で37項目の既存テスト・20項目の診断テストと、本環境で2アカウントの定期更新を確認済みです。v1.4.0の設定分割もDS1522+で37+20+10項目の模擬テストが成功しています。
 
-Linux直接実行は実験的な対応で、作者による実機確認はまだ行っていません。GitHub Actionsでの成功と、各導入先での実機確認は分けて判断してください。
+v1.7.0はDS1522+上のUbuntu Server 24.04 LTS（x86-64 VM）で、実アカウント2件の更新、定期通知、設定再読み込み、OS再起動後の自動起動・状態引き継ぎを確認しました。監視の一時停止によるUNHEALTHYと再開後のRECOVEREDは画面で確認済みです。ARM機は未検証です。
+
+Docker／Container Managerでの異常・復旧表示の実機確認は、別の追加検証として残しています。CIの模擬テスト成功と、導入先での実機確認は分けて判断してください。
