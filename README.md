@@ -8,7 +8,7 @@ MyDNS.JPへIPv4アドレスを自動通知する軽量な常駐ツールです�
 
 Dockerを使わずに動かす [Linux直接実行版](docs/linux.md) も用意しています。Ubuntu Server 24.04 LTS（DS1522+上のx86-64 VM）で動作確認済みです。ARM機や他のLinux環境は未検証です。
 
-現在はv1.7.0の開発版です。公開済みの版は [公開済みリリース](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
+現在はv1.8.0の開発版です。公開済みの版は [公開済みリリース](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
 
 導入・テスト・参考資料は [ドキュメント一覧](docs/README.md) から参照できます。
 
@@ -252,6 +252,10 @@ LAST_UPDATE=1789200000
 1つのstateフォルダーを複数の稼働コンテナで共有しないでください。
 
 ## 更新方法
+
+### v1.7.0からの更新
+
+Linux向けに任意の [自動復帰](docs/linux-recovery.md) を追加しました。Docker・Synologyの動作とCompose設定は変わりません。Linuxではサービス設定の更新も必要です。
 
 ### v1.6.0からの更新
 

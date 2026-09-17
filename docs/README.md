@@ -6,6 +6,7 @@
 | --- | --- |
 | [Dockerの動作確認](docker-testing.md) | コマンドラインでの導入、模擬テスト、実通知、異常・復旧 |
 | [Linux導入・運用](linux.md) | 準備、配置、設定、サービス起動、定期監視、更新 |
+| [Linuxの自動復帰](linux-recovery.md) | 再起動条件、回数制限、導入、確認、手動解除 |
 | [Linuxの動作確認](linux-testing.md) | 実通知、異常・復旧、再起動、結果の保存 |
 | [テストの実行と結果](testing.md) | GitHub Actionsと手元での模擬テスト |
 | [参考：UbuntuへのDocker導入](reference/ubuntu-docker.md) | Docker EngineとComposeの準備 |

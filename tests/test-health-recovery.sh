@@ -122,7 +122,7 @@ echo ok > "$TASK/mode"; run
 echo bad > "$TASK/mode"; echo 33600 > "$TASK/now"; run; run; run; attempts 4
 pass 'rolling hour allows another attempt when oldest has expired'
 # Persisted boot identity changes reset streak, not rate history.
-awk '{$1="previous-boot"; print}' "$TASK/state/status" > "$TASK/new"
+awk '{$1="previous-boot"; $8=0; $9=0; print}' "$TASK/state/status" > "$TASK/new"
 mv "$TASK/new" "$TASK/state/status"
 run; run; run; attempts 4
 pass 'OS boot change does not erase cooldown'
