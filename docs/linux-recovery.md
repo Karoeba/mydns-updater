@@ -39,7 +39,8 @@ systemd側にも1時間に4回までの起動制限を設けます。この4回�
 
 ## 1. 配布ファイルを確認する
 
-以下はLinux側で実行します。展開したフォルダーの直下へ移動してから確認します。
+以下はLinux側で実行します。開発中の版を試す場合は、GitHubで対象PRのブランチを選んで取得してください。mainにまだ入っていない変更もあるため、バージョンを確認します。
+展開したフォルダーの直下へ移動してから確認します。
 
 ```sh
 pwd
@@ -51,6 +52,9 @@ grep '^VERSION=' update.sh
 `No such file or directory` が出た場合は、今いるフォルダーや取得した版を確認してください。
 
 ## 2. 停止してファイルを配置する
+
+独自の配置先や実行ユーザーを使っている場合は、サービス設定をそのまま上書きせず、既存の指定を残して変更点を反映してください。
+自動復帰サービスの `MYDNS_UPDATER`、`MYDNS_HEALTH_FILE`、`MYDNS_RECOVERY_USER` も合わせます。
 
 設定ファイルと通知成功の記録はそのまま使います。
 更新サービスを停止し、プログラムとサービス設定をコピーします。
@@ -65,9 +69,6 @@ sudo install -o root -g root -m 644 deploy/linux/mydns-updater-recovery.timer /e
 sudo systemctl daemon-reload
 sudo systemctl start mydns-updater
 ```
-
-独自の配置先や実行ユーザーを使っている場合は、サービス設定をそのまま上書きせず、既存の指定を残して変更点を反映してください。
-自動復帰サービスの `MYDNS_UPDATER`、`MYDNS_HEALTH_FILE`、`MYDNS_RECOVERY_USER` も合わせます。
 
 配置と起動を確認します。
 

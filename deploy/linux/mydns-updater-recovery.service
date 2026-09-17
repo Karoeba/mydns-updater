@@ -14,6 +14,6 @@ Environment=MYDNS_RECOVERY_USER=mydns-updater
 Environment=MYDNS_UPDATER=/usr/local/lib/mydns-updater/update.sh
 Environment=MYDNS_HEALTH_FILE=/run/mydns-updater/health
 ExecStart=/bin/sh /usr/local/lib/mydns-updater/health-recover.sh
-TimeoutStartSec=35
+TimeoutStartSec=45
 SyslogIdentifier=mydns-updater-recovery
 UMask=0077
