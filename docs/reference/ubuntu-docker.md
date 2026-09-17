@@ -6,6 +6,14 @@ Ubuntu Server 24.04 LTSの新しい試験環境に、Docker EngineとComposeプ�
 
 VMの準備から始める場合は [Ubuntu VM構築例](synology-vm.md) を参照してください。以下はUbuntu側の端末で実行します。DSMのNAS本体では実行しません。
 
+## 操作を始める前に
+
+コマンドは手で打ち直すより、枠の中をコピーして使うと間違いを減らせます。1つの枠を実行し、その下の確認が済んでから次へ進みます。
+
+Ubuntuへ接続した画面は `tester@mydns-linux-test:~$` のような表示です。名前は環境によって変わります。Windowsの `PS C:\Users\...>` とは区別します。
+
+パスワード入力中に文字が出ないのは正常です。何も表示せず入力待ちに戻るコマンドもあります。ファイルの作成結果は、以下の確認コマンドで確かめます。
+
 ## 1. 既存環境を確認する
 
 Dockerがすでに使える場合は、導入し直さず手順4で確認します。この手順はDocker未導入のUbuntuを想定しています。別のDockerパッケージやcontainerdを使用中の場合は、削除せず [公式の前提条件](https://docs.docker.com/engine/install/ubuntu/#uninstall-old-versions) と既存用途を確認してください。
@@ -34,6 +42,21 @@ sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyring
 sudo chmod a+r /etc/apt/keyrings/docker.asc
 ```
 
+**確認：** ダウンロードしたファイルを確認します。
+
+```sh
+ls -l /etc/apt/keyrings/docker.asc
+head -n 1 /etc/apt/keyrings/docker.asc
+```
+
+ファイルのサイズが0でなく、次の1行が表示されれば、場所とファイルの形式を確認できています。正式な確認は後の `apt update` で行います。
+
+```text
+-----BEGIN PGP PUBLIC KEY BLOCK-----
+```
+
+`No such file or directory` なら、保存先やファイル名が違います。先へ進まず、直前のコマンドを確認してください。
+
 次は、最初の行から最後の `EOF` までをまとめて実行します。Ubuntuの版とCPUの種類はコマンド内で取得します。
 
 ```sh
@@ -45,10 +68,34 @@ Components: stable
 Architectures: $(dpkg --print-architecture)
 Signed-By: /etc/apt/keyrings/docker.asc
 EOF
+```
+
+入力待ちが `>` のままなら、複数行の入力がまだ終わっていません。Ctrl+Cで中断し、最初の行からEOFまでをまとめてコピーし直します。
+
+**確認：** 保存した内容を表示します。
+
+```sh
+cat /etc/apt/sources.list.d/docker.sources
+```
+
+Ubuntu 24.04・DS1522+のVMでは、次の6行です。別のCPUやUbuntuの版ではSuitesとArchitecturesが変わります。
+
+```text
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: noble
+Components: stable
+Architectures: amd64
+Signed-By: /etc/apt/keyrings/docker.asc
+```
+
+文字の抜け、余計な行、別の保存先になっていないかを確認してから進みます。
+
+```sh
 sudo apt update
 ```
 
-エラーがあれば、インストールへ進む前に内容を確認してください。
+Dockerの配布元を含む一覧が読み込まれ、エラーなく入力待ちに戻れば次へ進めます。`NO_PUBKEY`、`not signed`、`E:` がある場合は進めません。上の2ファイルの場所・名前・内容を確認し、解決しなければ表示を控えます。確認を無効にして先へ進む設定は行いません。
 
 ## 3. DockerとComposeをインストールする
 
@@ -56,6 +103,14 @@ sudo apt update
 sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 sudo systemctl enable --now docker
 ```
+
+**確認：** 次を実行します。
+
+```sh
+sudo systemctl is-active docker
+```
+
+`active` ならDockerが動いています。別の表示なら `sudo systemctl status docker --no-pager` で内容を確認します。
 
 この例ではOS起動時にもDockerを起動します。試験コンテナを稼働させたままVMを再起動すると、コンテナ側の再起動ポリシーに応じて再開します。試験終了時は [Dockerの動作確認手順](../docker-testing.md) に沿って停止します。
 
