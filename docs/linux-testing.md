@@ -4,6 +4,8 @@
 
 Ubuntu Server 24.04 LTSと付属のsystemd設定を使用する手順です。Linux導入手順に沿って更新サービスと定期監視を起動した後に行います。各手順では実行結果を確認してから次へ進みます。
 
+この資料は検知と手動再開の試験です。**自動復帰を有効にして試す場合は、[自動復帰の試験](linux-recovery.md#4-動作を試す)を使い、この資料のSTOP・CONT試験は行いません。**
+
 ## 1. 試験の準備と通常動作
 
 同じ実アカウントの既存環境を停止するか、別の試験用アカウントを使用します。試験環境と運用環境で設定・状態の保存先を共有しません。
@@ -58,7 +60,9 @@ CHECK_INTERVAL=60が反映済みなら、進行期限と連続失敗の判定を
 
 これが1回表示され、その後同じ異常が続いても繰り返し表示されなければ想定どおりです。自動再起動は行いません。
 
-**Ctrl+Cでログ表示を終了し、必ず次で再開します。**
+**正常な試験の流れ：** 異常ログを確認したらCtrl+Cで表示を終了し、次で再開します。
+
+**異常ログが出ない、または中断する場合：** 一時停止したままにせず、同じCONT操作で再開します。以後の記録は成功扱いにせず、状態とログを確認してください。
 
 ```sh
 sudo systemctl kill --kill-whom=main --signal=CONT mydns-updater.service
@@ -164,6 +168,10 @@ sudo systemctl list-timers --all mydns-updater-healthcheck.timer > ~/mydns-test-
 git -C ~/mydns-updater rev-parse HEAD > ~/mydns-test-results/commit.txt
 ```
 
+### 必要な場合だけ：Windowsへ記録をコピーする
+
+Ubuntu内に保存するだけなら、この操作を飛ばして手順7へ進みます。
+
 Windowsへ持ち帰る場合は、**WindowsのPowerShell**で実行します。ユーザー名・IPを置き換えてください。
 
 ```text
@@ -173,6 +181,8 @@ scp -r tester@192.168.1.50:~/mydns-test-results "$HOME\Downloads"
 ログにはIPや表示用ドメインが含まれます。公開する場合はその部分を確認してください。
 
 ## 7. Linux側を止めてDockerへ戻す
+
+**試験を終了して元の環境へ戻す場合だけ行います。** Linuxで継続運用する場合は、この節の停止・電源オフをすべて飛ばし、試験用の設定を運用時の値に戻してください。
 
 手順2で一時停止したままの場合は、先にCONTで再開してください。
 
@@ -186,11 +196,16 @@ sudo systemctl is-active mydns-updater
 
 inactiveを確認したら、試験前の環境へ戻す場合は元の更新サービスを再開します。SynologyではContainer Managerで元のプロジェクトを開始します。削除や再構築は不要です。
 
-Ubuntu VMも止める場合は、Ubuntuで次を実行します。
+<details>
+<summary>必要な場合だけ：Ubuntu VMの電源を切る</summary>
+
+記録のコピーを終えて、VMも使い終えた場合だけUbuntuで実行します。
 
 ```sh
 sudo poweroff
 ```
+
+</details>
 
 
 

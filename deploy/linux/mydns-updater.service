@@ -2,6 +2,8 @@
 Description=MyDNS IPv4 updater
 Wants=network-online.target
 After=network-online.target
+StartLimitIntervalSec=3600
+StartLimitBurst=4
 
 [Service]
 Type=simple
@@ -14,7 +16,8 @@ Environment=MYDNS_CONFIG_DIR=/etc/mydns-updater
 Environment=MYDNS_STATE_DIR=/var/lib/mydns-updater
 ExecStart=/bin/sh /usr/local/lib/mydns-updater/update.sh
 Restart=on-failure
-RestartSec=10
+RestartSec=600
+TimeoutStopSec=20
 UMask=0077
 
 [Install]

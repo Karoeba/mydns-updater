@@ -2,6 +2,9 @@
 
 Dockerを使わず、同じ `update.sh` を実行できます。以下はUbuntu/Debianとsystemdを使用する例です。
 
+systemdを使うArmbianやRaspberry Pi OS（旧Raspbian）でも同じ仕組みを利用できます。ただし、この手順とARM機での動作は未検証です。
+`ps -p 1 -o comm=` の結果が `systemd` であることを確認し、必要なコマンドや配置先も導入先に合わせて確認してください。
+
 Ubuntu Server 24.04 LTS（DS1522+上のx86-64 VM）で、v1.7.0の実アカウントによる通知・定期監視・異常検知と復旧・OS再起動後の動作を確認しています。ARM機や他のLinux環境は未検証です。
 
 初めてLinux環境を用意する場合は、[DS1522+でのUbuntu VM構築例](reference/synology-vm.md) を参考にしてください。導入後の詳しい検証は [Linuxの動作確認手順](linux-testing.md) にまとめています。
@@ -14,7 +17,9 @@ Ubuntu Server 24.04 LTS（DS1522+上のx86-64 VM）で、v1.7.0の実アカウ�
 
 以下はLinux側の端末で実行します。VMの場合はVMの画面、またはVMへSSH接続した画面を使います。NAS本体の端末ではありません。
 
-- コード枠を1つずつ実行し、結果を確認してから進みます。
+- 番号付きの手順を順に進め、各操作の結果を確認します。
+- 「必要な場合だけ」「困ったときだけ」の操作は、条件に当てはまる場合に限って行います。
+- 選択肢がある箇所は、どちらか一方を選びます。すべてのコード枠を実行する必要はありません。
 - `sudo` は管理者権限で実行する指定です。入力するのはLinuxのログインユーザーのパスワードです。
 - パスワード入力中に文字が表示されなくても正常です。
 - エラーが出たら、次の操作へ進む前に内容を確認します。
@@ -47,7 +52,11 @@ sudo apt update
 sudo apt install curl ca-certificates tzdata git nano util-linux coreutils
 ```
 
-続いてプログラムを取得します。この例はmainの開発版です。公開済みリリースとは異なります。
+### まだコードを取得していない場合だけ
+
+すでに対象の版を取得した場合は、次のclone操作を飛ばして「取得済みのファイルを確認する」へ進みます。
+
+以下はmainの開発版を新しいフォルダーへ取得する例です。PRの試験では、`--branch main` の `main` を対象のブランチ名に変更してから実行してください。公開済みリリースとは異なります。
 
 ```sh
 git clone --branch main --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater
@@ -57,7 +66,17 @@ git rev-parse HEAD
 
 最後に表示される文字列は、取得したコードを識別するコミット番号です。確認記録として残します。同名フォルダーがある場合は上書きせず、中身を確認してください。
 
-ZIPを展開した場合は、その中の `update.sh` があるフォルダーへ移動します。以降の配置操作は、この作業フォルダーから実行します。
+### 取得済みのファイルを確認する
+
+Git・ZIPのどちらで取得した場合も、対象の版の `update.sh` があるフォルダーへ移動し、次で確認します。以降の配置操作はこの場所から実行します。
+
+```sh
+pwd
+ls update.sh deploy/linux/mydns-updater.service
+grep '^VERSION=' update.sh
+```
+
+ファイルが表示され、試す版と一致したら手順2へ進みます。`No such file or directory` や違う版が出た場合は、取得元とフォルダーを確認してから再確認します。
 
 ## 2. 導入前の模擬テスト
 
@@ -174,19 +193,29 @@ sudo journalctl -u mydns-updater -n 30 --no-pager
 
 ## 6. 継続運用する、または試験を終了する
 
-継続運用する場合は、OS起動時の自動起動を有効にします。
+**ここは、どちらか一方を選びます。**
+
+### Linuxで継続運用する場合
+
+OS起動時の自動起動を有効にします。
 
 ```sh
 sudo systemctl enable mydns-updater
 ```
 
-試験を終える場合は、サービスを停止し、自動起動も無効にします。
+ここで導入手順は完了です。次の停止操作は行いません。
+
+### 試験を終了して元の環境へ戻す場合
+
+継続運用する場合は、この操作を行いません。サービスを停止し、自動起動も無効にします。
+
+定期監視を導入済みの場合だけ、先に `sudo systemctl disable --now mydns-updater-healthcheck.timer` を実行します。自動復帰を導入済みの場合だけ、`sudo systemctl disable --now mydns-updater-recovery.timer` と `sudo systemctl stop mydns-updater-recovery.service` も実行します。
 
 ```sh
 sudo systemctl disable --now mydns-updater
 ```
 
-定期監視を導入済みなら、先に `sudo systemctl disable --now mydns-updater-healthcheck.timer` も実行します。確認・記録・切り戻しの順序は [動作確認手順](linux-testing.md) を参照してください。
+確認・記録・切り戻しの順序は [動作確認手順](linux-testing.md) を参照してください。
 
 試験のためDocker側を停止した場合は、Linux側の停止後にDocker側を再開してください。
 
@@ -343,13 +372,24 @@ systemd自身の起動・終了メッセージまで確認する場合は、次�
 sudo journalctl -u mydns-updater-healthcheck.service --no-pager -n 30
 ```
 
-監視だけを無効にする場合：
+<details>
+<summary>必要な場合だけ：定期監視を無効にする</summary>
+
+監視を使い続ける場合は、この操作を行いません。
 
 ```sh
 sudo systemctl disable --now mydns-updater-healthcheck.timer
 ```
 
-更新プログラムはそのまま動き続けます。定期監視による自動再起動や外部への通知送信は、この版には含めません。
+更新プログラムはそのまま動き続けます。この定期監視は検知と記録を担当し、再起動や外部への通知送信は行いません。
+
+
+</details>
+
+### 自動復帰を追加する
+
+処理停止時に再起動する機能は、任意で追加できます。初期状態では無効です。
+条件・回数制限と導入方法は [Linuxの自動復帰](linux-recovery.md) にまとめています。
 
 配置先を独自に変更している場合は、監視サービスの `MYDNS_UPDATER` と `MYDNS_HEALTH_FILE` も更新プログラムと同じ場所に合わせてください。`MYDNS_MONITOR_DIR` は監視履歴の保存先であり、アカウントの状態保存先とは別です。これらは起動時の環境変数で、`mydns.conf` には記入しません。
 
@@ -357,7 +397,7 @@ sudo systemctl disable --now mydns-updater-healthcheck.timer
 
 `/var/lib/mydns-updater/state.conf` にアカウントごとの通知成功IPと成功時刻を保存します。再起動後も状態を引き継ぎます。設定ファイルと異なり、スクリプトによる書き込み権限が必要です。
 
-セクション番号は状態の識別子です。別アカウントに番号を再利用するときはサービスを停止し、該当する状態セクションを削除して初回扱いにします。状態の欠落・不正は初回扱いです。状態を読み取れない、または保存できない場合は終了し、この手順のサービス設定では再起動します。
+セクション番号は状態の識別子です。別アカウントに番号を再利用するときはサービスを停止し、該当する状態セクションを削除して初回扱いにします。状態の欠落・不正は初回扱いです。状態を読み取れない、または保存できない場合は終了し、この手順のサービス設定では10分後に再起動を試します。1時間に4回の起動制限に達した場合は停止したままになるため、原因を解決してから `sudo systemctl reset-failed mydns-updater` と `sudo systemctl start mydns-updater` を実行します。
 
 ## 配置先を変更する場合
 
@@ -422,7 +462,11 @@ MYDNS_CONFIG_DIR=/etc/mydns-updater MYDNS_STATE_DIR=/var/lib/mydns-updater sh /u
 
 ## 更新方法
 
-v1.6.0からは、設定・状態を保持してスクリプトを更新し、上記の3ファイルを追加して定期監視を有効にします。通常の更新サービス定義はv1.6.0と同じです。監視スクリプトを更新する際はタイマーと監視サービスを停止してから上書きし、タイマーを再開してください。
+v1.8.0では更新サービスの異常終了後の待機を10分とし、1時間に4回までの起動制限を追加しました。スクリプトに加えて `deploy/linux/mydns-updater.service` も更新します。独自の配置先を使っている場合は、その指定を保持してください。
+
+自動復帰を使う場合は [導入・更新手順](linux-recovery.md) に従って追加します。Ubuntu VMでの自動復帰と手動停止を確認済みです。範囲は [検証記録](testing.md#作者による確認状況) を参照してください。
+
+v1.6.0からは、設定・状態を保持してスクリプトを更新し、上記の3ファイルを追加して定期監視を有効にします。v1.7.0までの更新サービス定義はv1.6.0と同じでしたが、v1.8.0では上記の変更があります。監視スクリプトを更新する際はタイマーと監視サービスを停止してから上書きし、タイマーを再開してください。
 
 v1.5.0からの更新では、スクリプトと付属のサービス定義を更新してください。サービス定義を独自に編集している場合は、その配置先を保持したうえでRuntimeDirectory・RuntimeDirectoryMode・MYDNS_HEALTH_FILEの指定を反映します。
 

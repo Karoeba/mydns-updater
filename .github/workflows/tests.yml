@@ -64,10 +64,13 @@ jobs:
           sh tests/test-linux.sh
           sh tests/test-healthcheck-linux.sh
           sh tests/test-health-monitor.sh
+          sh tests/test-health-recovery.sh
       - name: Validate service unit
         run: systemd-analyze verify deploy/linux/*.service deploy/linux/*.timer
       - name: Test real systemd scheduling
-        run: sudo --preserve-env=GITHUB_ACTIONS sh tests/test-monitor-systemd.sh
+        run: |
+          sudo --preserve-env=GITHUB_ACTIONS sh tests/test-monitor-systemd.sh
+          sudo --preserve-env=GITHUB_ACTIONS sh tests/test-recovery-systemd.sh
 
   docs:
     name: Documentation shell syntax

@@ -1,0 +1,12 @@
+[Unit]
+Description=Check whether the stalled MyDNS updater needs recovery
+PartOf=mydns-updater.service
+
+[Timer]
+OnActiveSec=30s
+OnUnitActiveSec=30s
+AccuracySec=1s
+Unit=mydns-updater-recovery.service
+
+[Install]
+WantedBy=mydns-updater.service

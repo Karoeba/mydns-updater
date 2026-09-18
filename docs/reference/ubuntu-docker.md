@@ -18,15 +18,34 @@ Ubuntuへ接続した画面は `tester@mydns-linux-test:~$` のような表示�
 
 Dockerがすでに使える場合は、導入し直さず手順4で確認します。この手順はDocker未導入のUbuntuを想定しています。別のDockerパッケージやcontainerdを使用中の場合は、削除せず [公式の前提条件](https://docs.docker.com/engine/install/ubuntu/#uninstall-old-versions) と既存用途を確認してください。
 
-Linux直接実行版を試したVMでは、同じアカウントが重複稼働しないよう、導入済みの監視と更新を停止して自動起動も無効にします。
+<details>
+<summary>Linux直接実行版を導入したVMだけ：更新サービスを停止する</summary>
+
+Linux版を導入していないVMは、この操作を飛ばして手順2へ進みます。導入済みの場合は、同じアカウントの重複稼働を避けるため停止します。
+
+定期監視を導入済みの場合だけ、先に次を実行します。
 
 ```sh
 sudo systemctl disable --now mydns-updater-healthcheck.timer
+```
+
+自動復帰を導入済みの場合だけ、次も実行します。
+
+```sh
+sudo systemctl disable --now mydns-updater-recovery.timer
+sudo systemctl stop mydns-updater-recovery.service
+```
+
+更新サービスを停止します。
+
+```sh
 sudo systemctl disable --now mydns-updater
 sudo systemctl is-active mydns-updater.service
 ```
 
-導入済みの環境で最後が `inactive` なら停止しています。`is-active` の終了コードが0以外になるのは、この場面では想定どおりです。Linux版を導入していないVMでは、この操作は不要です。
+導入済みの環境で最後が `inactive` なら停止しています。`is-active` の終了コードが0以外になるのは、この場面では想定どおりです。停止を確認したら手順2へ進みます。
+
+</details>
 
 Dockerの導入と模擬テストの間はNASの運用を継続できます。実アカウントでVMのDocker版を起動する直前に、同じアカウントのNAS側も停止します。
 

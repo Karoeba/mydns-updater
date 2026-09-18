@@ -1,0 +1,19 @@
+[Unit]
+Description=Recover a stalled MyDNS updater
+After=mydns-updater.service
+
+[Service]
+Type=oneshot
+User=root
+Group=root
+StateDirectory=mydns-updater-recovery
+StateDirectoryMode=0700
+Environment=MYDNS_RECOVERY_DIR=/var/lib/mydns-updater-recovery
+Environment=MYDNS_RECOVERY_SERVICE=mydns-updater.service
+Environment=MYDNS_RECOVERY_USER=mydns-updater
+Environment=MYDNS_UPDATER=/usr/local/lib/mydns-updater/update.sh
+Environment=MYDNS_HEALTH_FILE=/run/mydns-updater/health
+ExecStart=/bin/sh /usr/local/lib/mydns-updater/health-recover.sh
+TimeoutStartSec=45
+SyslogIdentifier=mydns-updater-recovery
+UMask=0077
