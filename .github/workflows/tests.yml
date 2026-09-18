@@ -112,3 +112,15 @@ jobs:
           if count == 0 or failures:
               raise SystemExit(1)
           PY
+
+  recovery-semantics:
+    name: Docker recovery behavior
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Check out code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Check stop and restart behavior with isolated containers
+        run: sh tests/test-docker-recovery-semantics.sh
