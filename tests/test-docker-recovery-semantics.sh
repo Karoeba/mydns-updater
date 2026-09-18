@@ -10,7 +10,7 @@ docker version
 docker compose version
 docker pull alpine:3.23
 new_container() {
-    ID="$(docker create --network none --label mydns.test=docker-recovery-semantics "$@" alpine:3.23 sh -c 'sleep 12; exit 1')"
+    ID="$(docker create --network none --label mydns.test=docker-recovery-semantics "$@" alpine:3.23 sh -c 'sleep "${EXIT_DELAY:-600}"; exit 1')"
     IDS="$IDS $ID"
 }
 state() { docker inspect --format '{{.State.Status}}' "$ID"; }
@@ -33,7 +33,7 @@ docker restart --timeout 1 "$ID" >/dev/null
 echo 'PASS 1: restart starts a stopped container; inspect-then-restart has a stop race'
 docker stop --timeout 1 "$ID" >/dev/null
 
-new_container --restart unless-stopped
+new_container --restart unless-stopped --env EXIT_DELAY=12
 docker start "$ID" >/dev/null
 n=0
 while [ "$(docker inspect --format '{{.RestartCount}}' "$ID")" -lt 1 ]; do
@@ -48,7 +48,11 @@ sleep 3
 [ "$(state)" = exited ]
 [ "$before" = "$(docker inspect --format '{{.State.StartedAt}} {{.RestartCount}}' "$ID")" ]
 echo 'PASS 3: explicit stop remains stopped under unless-stopped'
+new_container --restart unless-stopped
 docker start "$ID" >/dev/null
+# Exceed Docker startup grace so lack of restart cannot be attributed to it.
+sleep 11
+[ "$(state)" = running ]
 docker kill --signal=KILL "$ID" >/dev/null
 wait_state exited
 sleep 3
