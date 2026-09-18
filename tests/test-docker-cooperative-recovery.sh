@@ -109,4 +109,22 @@ if [ "$(id -u)" -eq 0 ]; then kill -STOP "$PID"; else sudo kill -STOP "$PID"; fi
 request_exit || :
 wait_restart
 echo 'PASS 6: stopped PID 1 resumes and exits, then Docker restarts it'
-echo 'ALL COOPERATIVE RECOVERY EXPERIMENTS PASSED (6 checks)'
+# Verify the real updater too, with no configuration and no network.
+ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
+[ -f "$ROOT/update.sh" ] || ROOT=/opt
+ID="$(docker create --network none --restart unless-stopped --label mydns.test=cooperative-recovery alpine:3.23 sh /opt/update.sh)"
+IDS="$IDS $ID"
+docker cp "$ROOT/update.sh" "$ID":/opt/update.sh
+docker start "$ID" >/dev/null
+n=0
+until docker exec "$ID" sh /opt/update.sh --healthcheck; do
+    [ "$n" -lt 15 ] || exit 1
+    sleep 1; n=$((n+1))
+done
+sleep 11
+EXPECTED="$(generation)"
+BEFORE="$(docker inspect --format '{{.RestartCount}}' "$ID")"
+request_exit || :
+wait_restart
+echo 'PASS 7: real updater exits and restarts within the bounded wait'
+echo 'ALL COOPERATIVE RECOVERY EXPERIMENTS PASSED (7 checks)'
