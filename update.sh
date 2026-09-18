@@ -212,7 +212,12 @@ case "$STATE_DIR" in /*) ;; *) fatal "[STATE] PATH_INVALID; MYDNS_STATE_DIR must
 
 WORK_DIR="$(mktemp -d)" || fatal "[INTERNAL] TEMP_CREATE_FAILED; check temporary storage"
 STATE_TMP=""
+SLEEP_PID=""
 cleanup() {
+    if [ -n "$SLEEP_PID" ]; then
+        kill "$SLEEP_PID" 2>/dev/null || :
+        wait "$SLEEP_PID" 2>/dev/null || :
+    fi
     [ "$HEALTH_ENABLED" -ne 1 ] || rm -f "$HEALTH_FILE"
     [ -z "$STATE_TMP" ] || rm -f "$STATE_TMP"
     rm -rf "$WORK_DIR"
@@ -595,5 +600,9 @@ while true; do
         run_cycle
     fi
     health_progress "$CHECK_INTERVAL"
-    sleep "$CHECK_INTERVAL"
+    # Waiting on a background child lets TERM interrupt the interval promptly.
+    sleep "$CHECK_INTERVAL" &
+    SLEEP_PID=$!
+    wait "$SLEEP_PID"
+    SLEEP_PID=""
 done
