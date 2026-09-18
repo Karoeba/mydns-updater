@@ -65,7 +65,7 @@ sleep 3
 echo 'PASS 2: old generation request is rejected'
 
 # Stop wins when it completes before an exit request.
-docker stop --timeout 5 "$ID" >/dev/null
+docker stop -t 5 "$ID" >/dev/null
 EXPECTED="$NEW"
 if request_exit; then echo 'FAIL: exec on stopped container succeeded'; exit 1; fi
 assert_stopped
@@ -79,7 +79,7 @@ until docker exec "$ID" test -f /tmp/request-ready; do
     [ "$n" -lt 10 ] || exit 1
     sleep 1; n=$((n+1))
 done
-docker stop --timeout 5 "$ID" >/dev/null
+docker stop -t 5 "$ID" >/dev/null
 sleep 6
 assert_stopped
 echo 'PASS 4: pending exec request does not undo manual stop'

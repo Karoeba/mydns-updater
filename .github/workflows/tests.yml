@@ -146,7 +146,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cid=$(docker create --privileged -e DOCKER_TLS_CERTDIR= docker:24.0.2-dind --host=unix:///var/run/docker.sock)
+          cid=$(docker create --privileged --entrypoint dockerd docker:24.0.2-dind --host=unix:///var/run/docker.sock)
           trap 'docker rm -f "$cid" >/dev/null' EXIT
           docker start "$cid"
           for attempt in $(seq 1 60); do
