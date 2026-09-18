@@ -60,3 +60,47 @@ tests/test-docker-recovery-semantics.shは、使い捨てのGitHub Actions環境
 - [Dockerのkill実装](https://github.com/moby/moby/blob/master/daemon/kill.go)
 - [Container Manager](https://www.synology.com/en-us/dsm/feature/container-manager)
 - [DSMでのタスク作成](https://kb.synology.com/en-br/DSM/tutorial/common_mistake_in_task_scheduler_script)
+
+## NASで確認できた環境
+
+利用者のDS1522+で、Docker Engine 24.0.2、API 1.43、linux/amd64を確認した。
+SSHからsudoで実行した場合、次のコマンドが見つかった。
+
+| コマンド | パス |
+| --- | --- |
+| docker | /usr/local/bin/docker |
+| sh | /bin/sh |
+| timeout | /bin/timeout |
+| flock | /bin/flock |
+| date | /bin/date |
+| awk | /bin/awk |
+
+これは存在の確認。各オプションの対応とDSMタスク実行時の環境は未確認。
+
+## 追加の方式検証
+
+停止済みのコンテナを起動しないよう、docker execで内部のPID 1にTERMとCONTを送り、
+終了後の再起動をunless-stoppedに任せる方式を試験する。
+更新スクリプトはTERMを受けると終了する処理を既に持つ。
+
+tests/test-docker-cooperative-recovery.shは試験用の小さな処理を使う。
+実際のupdate.sh、回数制限、DSMスケジューラへの組み込みはまだ行っていない。
+試験対象はランナーのDockerと、使い捨て環境内に起動したDocker 24.0.2。
+後者はSynology独自ビルドやNAS実機そのものの試験ではない。
+
+- 内部からの終了依頼で再起動できるか。
+- 古い起動時の依頼を拒否できるか。
+- 手動停止後の依頼で起動しないか。
+- 依頼を受け付けた直後に手動停止しても停止を維持するか。
+- DockerのSTOP操作が再起動ポリシーに与える影響。
+- Dockerを経由せずプロセスを一時停止した場合の復帰。
+
+### 一時停止テストについて
+
+Docker 24.0.2のkill処理は、STOP信号でも手動停止の記録を書き込む。
+そのため、以前のヘルスチェック検証で使ったdocker kill --signal STOPを、
+今回の自動復帰の正常系テストにそのまま使うことはできない。
+本番コンテナに別の停止コマンドを試す前に、隔離した試験環境で手順を確定する。
+
+- [Docker 24.0.2のkill処理](https://github.com/moby/moby/blob/v24.0.2/daemon/kill.go)
+- [動作中のコンテナ内でコマンドを実行する機能](https://docs.docker.com/reference/cli/docker/container/exec/)

@@ -124,3 +124,35 @@ jobs:
           persist-credentials: false
       - name: Check stop and restart behavior with isolated containers
         run: sh tests/test-docker-recovery-semantics.sh
+
+  recovery-cooperative:
+    name: Recovery experiment (${{ matrix.engine }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [runner, "24.0.2"]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Test runner Docker
+        if: matrix.engine == 'runner'
+        run: sh tests/test-docker-cooperative-recovery.sh
+      - name: Test isolated Docker 24.0.2 daemon
+        if: matrix.engine == '24.0.2'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cid=$(docker create --privileged -e DOCKER_TLS_CERTDIR= docker:24.0.2-dind)
+          trap 'docker rm -f "$cid" >/dev/null' EXIT
+          docker start "$cid"
+          for attempt in $(seq 1 60); do
+            if docker exec "$cid" docker info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          docker exec "$cid" docker info >/dev/null
+          docker cp tests/test-docker-cooperative-recovery.sh "$cid":/tmp/probe.sh
+          docker exec -e GITHUB_ACTIONS=true "$cid" sh /tmp/probe.sh
