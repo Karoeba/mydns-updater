@@ -65,6 +65,7 @@ jobs:
           sh tests/test-healthcheck-linux.sh
           sh tests/test-health-monitor.sh
           sh tests/test-health-recovery.sh
+          python3 tests/test-shutdown.py
       - name: Validate service unit
         run: systemd-analyze verify deploy/linux/*.service deploy/linux/*.timer
       - name: Test real systemd scheduling

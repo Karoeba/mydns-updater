@@ -84,7 +84,8 @@ SSHからsudoで実行した場合、次のコマンドが見つかった。
 更新スクリプトはTERMを受けると終了する処理を既に持つ。
 
 tests/test-docker-cooperative-recovery.shは試験用の小さな処理を使う。
-実際のupdate.sh、回数制限、DSMスケジューラへの組み込みはまだ行っていない。
+実際のupdate.shの待機中の終了も確認する。
+回数制限、DSMスケジューラへの組み込みはまだ行っていない。
 試験対象はランナーのDockerと、使い捨て環境内に起動したDocker 24.0.2。
 後者はSynology独自ビルドやNAS実機そのものの試験ではない。
 
@@ -104,3 +105,15 @@ Docker 24.0.2のkill処理は、STOP信号でも手動停止の記録を書き�
 
 - [Docker 24.0.2のkill処理](https://github.com/moby/moby/blob/v24.0.2/daemon/kill.go)
 - [動作中のコンテナ内でコマンドを実行する機能](https://docs.docker.com/reference/cli/docker/container/exec/)
+
+## 待機中の終了について
+
+元のupdate.shでは、300秒の待機中にTERMを送っても、待機が終わるまで終了しなかった。
+このため、待機を子プロセスで行い、終了依頼を受けたらその子プロセスも終了・回収するよう修正した。
+IP確認の間隔や更新の判断は変更しない。
+
+Dockerの試験では実際のupdate.shが短時間で終了して再起動すること、
+Linuxの試験ではTERMによる終了後に待機用の子プロセスとヘルスチェック記録が残らないことを確認する。
+自動復帰はまだ有効にならない。
+
+NASで方式を試す場合は、[専用コンテナでの確認手順](synology-recovery-probe.md)を使う。

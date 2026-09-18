@@ -1,7 +1,19 @@
 #!/bin/sh
 # Behavior experiments only; no production container or account is accessed.
 set -eu
-[ "${GITHUB_ACTIONS:-}" = true ] || { echo 'CI only'; exit 1; }
+case "${1:-}" in
+    --disposable-test)
+        [ "$(id -u)" -eq 0 ] || { echo 'Run with sudo'; exit 1; }
+        ;;
+    "")
+        [ "${GITHUB_ACTIONS:-}" = true ] || { echo 'Use --disposable-test for a dedicated local test'; exit 1; }
+        ;;
+    *) echo 'Invalid arguments'; exit 1 ;;
+esac
+# Host PID operations below require the local daemon, never a remote context.
+docker() { command docker --host unix:///var/run/docker.sock "$@"; }
+echo 'This test creates temporary containers only. Existing containers are not selected.'
+
 IDS=""
 cleanup() { for cid in $IDS; do docker rm -f "$cid" >/dev/null 2>&1 || :; done; }
 trap cleanup 0
@@ -105,6 +117,12 @@ new_container
 EXPECTED="$(generation)"
 BEFORE="$(docker inspect --format '{{.RestartCount}}' "$ID")"
 PID="$(docker inspect --format '{{.State.Pid}}' "$ID")"
+case "$PID" in ""|*[!0-9]*) echo 'FAIL: invalid test PID'; exit 1 ;; esac
+[ "$PID" -gt 1 ] || exit 1
+[ "$(docker inspect --format '{{index .Config.Labels "mydns.test"}}' "$ID")" = cooperative-recovery ] || exit 1
+[ "$(awk '{sub(/^.*\) /,""); print $20}' "/proc/$PID/stat")" = "$EXPECTED" ] || {
+    echo 'FAIL: Docker PID is not in this host namespace'; exit 1;
+}
 if [ "$(id -u)" -eq 0 ]; then kill -STOP "$PID"; else sudo kill -STOP "$PID"; fi
 request_exit || :
 wait_restart
