@@ -13,13 +13,6 @@ trap 'exit 1' INT TERM
 mkdir -p "$TASK/state" "$TASK/bin"
 DOCKER_BIN="$(command -v docker)"
 export MYDNS_DOCKER_BIN="$DOCKER_BIN" MYDNS_RECOVERY_DIR="$TASK/state" FIXTURE="$TASK"
-cat > "$TASK/bin/date" <<'EOF'
-#!/bin/sh
-if [ "$1" = +%s ]; then cat "$FIXTURE/now"; else /bin/date "$@"; fi
-EOF
-chmod +x "$TASK/bin/date"
-export PATH="$TASK/bin:$PATH"
-echo 10000 > "$TASK/now"
 ID="$(docker create --network none --restart unless-stopped \
     --label mydns.test=docker-recovery-policy alpine:3.23 sh /app/update.sh)"
 export MYDNS_RECOVERY_CONTAINER="$ID"
@@ -45,12 +38,12 @@ if [ "$(id -u)" -eq 0 ]; then kill -STOP "$pid"; else sudo kill -STOP "$pid"; fi
 # Change only this disposable container's progress deadline.
 docker exec "$ID" sh -c 'awk '"'"'{$3=0; print}'"'"' /tmp/mydns-updater.health > /tmp/expired; mv /tmp/expired /tmp/mydns-updater.health'
 run
-echo 10030 > "$TASK/now"; run
+sleep 30; run
 [ "$(docker inspect --format '{{.RestartCount}}' "$ID")" = "$before" ]
-echo 10060 > "$TASK/now"; run
+sleep 30; run
 n=0
 until [ "$(docker inspect --format '{{.RestartCount}}' "$ID")" -gt "$before" ]; do
-    [ "$n" -lt 20 ] || exit 1
+    [ "$n" -lt 20 ] || { cat "$TASK/state/status"; docker logs "$ID"; exit 1; }
     sleep 1; n=$((n+1))
 done
 n=0
@@ -62,7 +55,7 @@ run > "$TASK/log"
 grep -q RECOVERED "$TASK/log"
 echo 'PASS: actual host policy requests recovery after three probes and confirms healthy'
 docker stop -t 5 "$ID" >/dev/null
-echo 10120 > "$TASK/now"; run
+run
 [ "$(docker inspect --format '{{.State.Status}}' "$ID")" = exited ]
 sh "$ROOT/docker-health-recover.sh" --reset
 [ "$(docker inspect --format '{{.State.Status}}' "$ID")" = exited ]

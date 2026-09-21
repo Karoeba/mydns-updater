@@ -5,6 +5,7 @@
 | 資料 | 内容 |
 | --- | --- |
 | [Dockerの動作確認](docker-testing.md) | コマンドラインでの導入、模擬テスト、実通知、異常・復旧 |
+| [Docker・Synologyの自動復帰](docker-recovery.md) | 条件、回数制限、定期実行、導入と解除 |
 | [Linux導入・運用](linux.md) | 準備、配置、設定、サービス起動、定期監視、更新 |
 | [Linuxの自動復帰](linux-recovery.md) | 再起動条件、回数制限、導入、確認、手動解除 |
 | [Linuxの動作確認](linux-testing.md) | 実通知、異常・復旧、再起動、結果の保存 |
