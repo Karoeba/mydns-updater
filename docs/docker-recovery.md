@@ -26,6 +26,42 @@ Dockerが表示するunhealthyをさらに3回数えるのではなく、毎回�
 
 この上限は、この機能が出す復帰要求の上限です。プロセスの異常終了に対するDockerのunless-stoppedによる再起動回数を制限するものではありません。
 
+## 本番導入前に組み合わせを試す
+
+取得したフォルダーを本番とは別の `/volume1/docker/mydns-recovery-check` に置きます。
+以前の方式確認でこのフォルダーを使った場合は、最新の試験ファイルへ更新してください。
+本番のconfigとstateをコピーする必要はありません。本番コンテナは動かしたままで構いません。
+
+NASのSSHで次を実行します。
+
+```sh
+cd /volume1/docker/mydns-recovery-check
+pwd
+ls -l update.sh docker-health-recover.sh tests/test-docker-recovery-integration.sh
+```
+
+表示された場所が上記のフォルダーで、3ファイルすべてが存在することを確認してから続けます。
+
+```sh
+sudo sh tests/test-docker-recovery-integration.sh --disposable-test > recovery-integration.log 2>&1
+test_result=$?
+cat recovery-integration.log
+printf '\n試験の終了コード: %s\n' "$test_result"
+```
+
+試験専用コンテナを作り、進行期限超過を再現します。30秒間隔で3回確認し、実際の復帰・正常確認・手動停止・履歴解除まで試します。所要時間は通常2〜3分です。
+試験用コンテナのネットワークは無効で、本番の設定・履歴は読みません。終了時に試験用コンテナを削除します。
+
+正常時は最後に次の表示が出ます。
+
+```text
+ALL DOCKER RECOVERY INTEGRATION TESTS PASSED
+試験の終了コード: 0
+```
+
+成功したら、以下の本番導入へ進めます。recovery-integration.logは実機確認の記録として保存してください。
+失敗した場合は導入を進めず、このログを確認・共有してください。
+
 ## 先に更新するもの
 
 1. 対象コンテナを停止します。
