@@ -71,6 +71,7 @@ docker stop -t 5 "$ID" >/dev/null
 run
 [ "$(docker inspect --format '{{.State.Status}}' "$ID")" = exited ]
 sh "$ROOT/docker-health-recover.sh" --reset
+[ ! -e "$TASK/state/status" ]
 [ "$(docker inspect --format '{{.State.Status}}' "$ID")" = exited ]
 echo 'PASS: manual stop and history reset never start container'
 echo 'ALL DOCKER RECOVERY INTEGRATION TESTS PASSED'

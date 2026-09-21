@@ -1,5 +1,5 @@
 """Exercise the real host adapter with a fake clock and Docker CLI."""
-import json, os, subprocess, tempfile
+import fcntl, json, os, subprocess, tempfile
 from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 with tempfile.TemporaryDirectory() as tmp:
@@ -122,6 +122,12 @@ print(json.load(open(os.environ["FIXTURE"]))["now"])
     print("PASS: other result breaks overdue streak")
     reset();advance();run();advance();run();advance(181);run();count(9)
     print("PASS: long monitoring gap restarts consecutive count")
+    with (p/"state/lock").open("w") as lock:
+        fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+        run();count(9)
+        run("--reset",ok=False)
+        run("--status",ok=False)
+    print("PASS: overlapping check is skipped; manual commands report lock contention")
     (p/"state/status").write_text("broken\n")
     run(ok=False);count(9)
     print("PASS: corrupted history fails closed")

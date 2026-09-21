@@ -28,7 +28,8 @@ Dockerが表示するunhealthyをさらに3回数えるのではなく、毎回�
 
 ## 本番導入前に組み合わせを試す
 
-取得したフォルダーを本番とは別の `/volume1/docker/mydns-recovery-check` に置きます。
+[開発ブランチのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/docker-recovery-validation.zip)をダウンロードして展開します。
+展開した中身を本番とは別の `/volume1/docker/mydns-recovery-check` に置きます。
 以前の方式確認でこのフォルダーを使った場合は、最新の試験ファイルへ更新してください。
 本番のconfigとstateをコピーする必要はありません。本番コンテナは動かしたままで構いません。
 
@@ -58,6 +59,8 @@ printf '\n試験の終了コード: %s\n' "$test_result"
 ALL DOCKER RECOVERY INTEGRATION TESTS PASSED
 試験の終了コード: 0
 ```
+
+途中で `Container ... is restarting` が出ることがあります。再起動中の一時的な表示なので、最後の成功表示と終了コードで判断してください。
 
 成功したら、以下の本番導入へ進めます。recovery-integration.logは実機確認の記録として保存してください。
 失敗した場合は導入を進めず、このログを確認・共有してください。

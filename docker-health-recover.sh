@@ -17,7 +17,10 @@ for tool in flock timeout awk date mktemp; do
 done
 [ -x "$DOCKER" ] || fatal 'Docker command unavailable'
 exec 9>"$DIR/lock" || fatal 'cannot open lock'
-flock -n 9 || exit 0
+if ! flock -n 9; then
+    [ "$1" = --once ] && exit 0
+    fatal 'another recovery check is running; retry shortly'
+fi
 STATE="$DIR/status"; TEMP=""
 trap '[ -z "$TEMP" ] || rm -f "$TEMP"' 0
 trap 'exit 1' INT TERM
@@ -63,7 +66,7 @@ if [ "$NOW" -lt "$LAST" ]; then
     NOW="$LAST"
 fi
 [ "$SAVED_BOOT" = "$BOOT" ] || { GEN=none; COUNT=0; SAMPLE=0; }
-docker_cmd() { timeout -k 1 5 "$DOCKER" --host unix:///var/run/docker.sock "$@"; }
+docker_cmd() { timeout -k 1 5 "$DOCKER" --host unix:///var/run/docker.sock "$@" 9>&-; }
 snapshot() {
     SNAP="$(docker_cmd inspect --format '{{.Id}} {{.State.Status}} {{.State.Paused}} {{.HostConfig.RestartPolicy.Name}} {{.State.StartedAt}}' "$1" 2>/dev/null)" || return 1
     printf '%s\n' "$SNAP" | awk '
