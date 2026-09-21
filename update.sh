@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VERSION="1.8.0"
+VERSION="1.9.0"
 CONFIG_DIR="${MYDNS_CONFIG_DIR:-/config}"
 CONFIG="$CONFIG_DIR/mydns.conf"
 ACCOUNTS_CONFIG="$CONFIG_DIR/accounts.conf"
@@ -57,8 +57,31 @@ health_progress() {
         fatal "[HEALTH] WRITE_FAILED; check temporary storage"
     fi
 }
+# MYDNS_DOCKER_RECOVERY_PROTOCOL=1
+recovery_status() {
+    R_RECORD="$(cat "$HEALTH_FILE" 2>/dev/null)" || { echo OTHER; return; }
+    R_RESULT=0
+    R_OUTPUT="$(health_probe)" || R_RESULT=$?
+    [ "$R_RECORD" = "$(cat "$HEALTH_FILE" 2>/dev/null)" ] || { echo OTHER; return; }
+    R_TOKEN="$(printf '%s\n' "$R_RECORD" | awk 'NR==1 && NF==4 && $1==1 {print $4 "_" $2}')"
+    R_CURRENT="$(cat /proc/sys/kernel/random/boot_id)_$(health_process_start 1)"
+    [ "$R_TOKEN" = "$R_CURRENT" ] || { echo OTHER; return; }
+    case "$R_RESULT:$R_OUTPUT" in
+        "0:HEALTHY: updater progressing or waiting") echo "HEALTHY ${R_TOKEN}_$(printf '%s\n' "$R_RECORD" | awk '{print $3}')" ;;
+        "1:UNHEALTHY: updater progress overdue") echo "OVERDUE ${R_TOKEN}_$(printf '%s\n' "$R_RECORD" | awk '{print $3}')" ;;
+        *) echo OTHER ;;
+    esac
+}
 case "${1:-}" in
     --healthcheck) health_probe; exit $? ;;
+    --docker-recovery-status) recovery_status; exit $? ;;
+    --docker-recovery-request)
+        [ "$#" -eq 2 ] || exit 2
+        R_STATUS="$(recovery_status)" || exit 1
+        [ "$R_STATUS" = "OVERDUE $2" ] || exit 3
+        # Only signal PID 1 here; never use the Docker start/restart/kill API.
+        kill -TERM 1 && kill -CONT 1
+        exit $? ;;
 esac
 
 log() {

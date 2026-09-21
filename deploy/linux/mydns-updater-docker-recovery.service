@@ -1,0 +1,12 @@
+[Unit]
+Description=MyDNS Docker progress recovery check
+After=docker.service
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=-/etc/mydns-updater-docker-recovery.conf
+ExecStart=/bin/sh /usr/local/lib/mydns-updater/docker-health-recover.sh --once
+StateDirectory=mydns-updater-docker-recovery
+StateDirectoryMode=0700
+UMask=0077
+TimeoutStartSec=45
