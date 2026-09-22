@@ -65,6 +65,8 @@ jobs:
           sh tests/test-healthcheck-linux.sh
           sh tests/test-health-monitor.sh
           sh tests/test-health-recovery.sh
+          python3 tests/test-shutdown.py
+          python3 tests/test-docker-recovery-policy.py
       - name: Validate service unit
         run: systemd-analyze verify deploy/linux/*.service deploy/linux/*.timer
       - name: Test real systemd scheduling
@@ -112,3 +114,54 @@ jobs:
           if count == 0 or failures:
               raise SystemExit(1)
           PY
+
+  recovery-semantics:
+    name: Docker recovery behavior
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Check out code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Check stop and restart behavior with isolated containers
+        run: sh tests/test-docker-recovery-semantics.sh
+
+  recovery-cooperative:
+    name: Recovery experiment (${{ matrix.engine }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 7
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [runner, "24.0.2"]
+    steps:
+      - name: Check out code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Test runner Docker
+        if: matrix.engine == 'runner'
+        run: |
+          sh tests/test-docker-cooperative-recovery.sh
+          sh tests/test-docker-recovery-integration.sh
+      - name: Test isolated Docker 24.0.2 daemon
+        if: matrix.engine == '24.0.2'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cid=$(docker create --privileged --entrypoint dockerd docker:24.0.2-dind --host=unix:///var/run/docker.sock)
+          trap 'docker rm -f "$cid" >/dev/null' EXIT
+          docker start "$cid"
+          for attempt in $(seq 1 60); do
+            if docker exec "$cid" docker info >/dev/null 2>&1; then break; fi
+            sleep 1
+          done
+          docker exec "$cid" docker info >/dev/null
+          docker cp tests/test-docker-cooperative-recovery.sh "$cid":/opt/probe.sh
+          docker cp update.sh "$cid":/opt/update.sh
+          docker exec -e GITHUB_ACTIONS=true "$cid" sh /opt/probe.sh
+          docker exec "$cid" mkdir -p /opt/tests
+          docker cp tests/test-docker-recovery-integration.sh "$cid":/opt/tests/integration.sh
+          docker cp docker-health-recover.sh "$cid":/opt/docker-health-recover.sh
+          docker exec -e GITHUB_ACTIONS=true "$cid" sh /opt/tests/integration.sh

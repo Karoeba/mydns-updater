@@ -153,6 +153,7 @@ sudo docker run --rm hello-world
 
 ## 5. ツールの導入と試験へ進む
 
-[Dockerの動作確認手順](../docker-testing.md) で、コードの取得、模擬テスト、実アカウントの設定、起動、異常・復旧を順に確認します。
+通常の導入は[Dockerの導入・運用](../docker.md)へ進みます。
+詳しく試す場合は[Dockerの動作確認](../docker-testing.md)、自動復帰を追加する場合は[Dockerの自動復帰](../docker-systemd-recovery.md)を選びます。
 
 UbuntuへのDocker導入は環境準備です。MyDNS.JPへの通知成功を確認したことにはならないため、導入後の確認も行ってください。
