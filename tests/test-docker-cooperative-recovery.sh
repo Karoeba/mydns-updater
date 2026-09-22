@@ -133,6 +133,7 @@ ROOT="$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)"
 ID="$(docker create --network none --restart unless-stopped --label mydns.test=cooperative-recovery alpine:3.23 sh /opt/update.sh)"
 IDS="$IDS $ID"
 docker cp "$ROOT/update.sh" "$ID":/opt/update.sh
+docker cp "$ROOT/lib" "$ID":/opt/lib
 docker start "$ID" >/dev/null
 n=0
 until docker exec "$ID" sh /opt/update.sh --healthcheck; do

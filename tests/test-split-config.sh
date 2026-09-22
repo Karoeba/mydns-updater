@@ -1,8 +1,7 @@
 #!/bin/sh
 set -eu
 # Disposable container only. Real loader/cycle, with network mock from the suite.
-awk '/^STARTUP_LOGGED=0$/ {exit} {print}' /source/update.sh > /tmp/split-library.sh
-. /tmp/split-library.sh
+. /suite/load-library.sh
 PATH="/tmp/test-bin:$PATH"
 export PATH
 COUNT=0

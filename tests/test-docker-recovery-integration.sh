@@ -24,6 +24,7 @@ ID="$(docker create --network none --restart unless-stopped \
 export MYDNS_RECOVERY_CONTAINER="$ID"
 mkdir -p "$TASK/app"
 cp "$ROOT/update.sh" "$TASK/app/update.sh"
+cp -R "$ROOT/lib" "$TASK/app/lib"
 docker cp "$TASK/app" "$ID":/app
 docker start "$ID" >/dev/null
 n=0

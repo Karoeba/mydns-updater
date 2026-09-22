@@ -12,8 +12,9 @@ trap cleanup_test 0
 trap 'exit 1' INT TERM
 export MYDNS_HEALTH_FILE="$TEST_DIR/runtime with spaces/health"
 mkdir -p "$(dirname "$MYDNS_HEALTH_FILE")" "$TEST_DIR/bin" "$TEST_DIR/config" "$TEST_DIR/state"
-awk '/^log\(\)/ {exit} {print}' "$UPDATER" > "$TEST_DIR/library"
-. "$TEST_DIR/library"
+HEALTH_FILE="$MYDNS_HEALTH_FILE"
+HEALTH_ENABLED=0
+. "$(dirname "$UPDATER")/lib/health.sh"
 fatal() { echo "$*"; exit 1; }
 COUNT=0
 pass() { COUNT=$((COUNT+1)); echo "PASS linux health $COUNT: $*"; }
