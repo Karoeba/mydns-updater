@@ -10,11 +10,11 @@ Docker未導入なら、先に[UbuntuへのDocker導入](reference/ubuntu-docker
 
 ## 1. 作業フォルダーを用意する
 
-使用する版を取得します。次はv1.9.0の開発ブランチを新しいフォルダーへ取得する例で、公開済みリリースとは別です。
+使用する版を取得します。次はmainを新しいフォルダーへ取得する例で、公開済みリリースとは別です。
 同名フォルダーがすでにある場合は取得を繰り返さず、中身を確認します。
 
 ```sh
-git clone --branch docker-recovery-validation --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
+git clone --branch main --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
 cd mydns-updater-docker
 pwd
 ls -l compose.yaml update.sh mydns.conf.example accounts.conf.example

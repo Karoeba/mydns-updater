@@ -7,7 +7,7 @@ NAS本体のSSHとDSMを使います。以下ではボリュームをvolume1、�
 
 ## 始める前に
 
-v1.9.0の[開発ブランチのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/docker-recovery-validation.zip)を展開します。
+v1.9.0以降のファイルを用意します。[mainのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/main.zip)を取得した場合は展開します。
 初回の導入確認には、本番とは別の `/volume1/docker/mydns-recovery-check` に中身を置きます。
 
 NASのSSHで次を実行し、作業場所を確認します。

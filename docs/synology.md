@@ -8,7 +8,7 @@ NAS本体のContainer Managerで使う手順です。NAS上のUbuntu VMにDocker
 ## 1. ファイルを用意する
 
 Container Managerが使えるNASで、使用する版のZIPをダウンロードして展開します。
-v1.9.0の開発版を試す場合は[開発ブランチのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/docker-recovery-validation.zip)を使います。公開済みリリースとは別です。
+mainのコードを使う場合は[mainのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/main.zip)を使います。公開済みリリースとは別です。
 
 File Stationで、共有フォルダー `docker` の中に `mydns-updater` を作り、展開した中身をアップロードします。
 フォルダー名にバージョンは入れません。ZIPの外側のフォルダーを重ねて入れないようにしてください。
