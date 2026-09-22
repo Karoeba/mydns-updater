@@ -4,7 +4,7 @@
 
 MyDNS.JPへIPv4アドレスを自動通知する軽量な常駐ツールです。複数アカウントに対応し、IPアドレスが変わったときと、アカウントごとの定期更新期限に通知します。
 
-このREADMEではDockerでの導入・運用を説明します。コマンドラインのほか、Synology NASのContainer Managerでも使用できます。
+このREADMEには、各環境で共通する設定と動作をまとめています。導入・更新・自動復帰の操作は、次の入口から自分の環境を選んでください。
 
 Dockerを使わずに動かす [Linux直接実行版](docs/linux.md) も用意しています。Ubuntu Server 24.04 LTS（DS1522+上のx86-64 VM）で動作確認済みです。ARM機や他のLinux環境は未検証です。
 
@@ -12,85 +12,33 @@ Dockerを使わずに動かす [Linux直接実行版](docs/linux.md) も用意�
 
 導入・テスト・参考資料は [ドキュメント一覧](docs/README.md) から参照できます。
 
+## 起動方法
+
+| 使う環境 | 最初に読む手順 |
+| --- | --- |
+| Synology NASのContainer Manager | [Synologyでの導入・運用](docs/synology.md) |
+| Ubuntuなどの通常のDocker・Compose | [Dockerでの導入・運用](docs/docker.md) |
+| Linuxで直接実行（Dockerなし） | [Linuxでの導入・運用](docs/linux.md) |
+
+NAS上のVMでUbuntu＋Dockerを使う場合は「通常のDocker」です。NAS本体のContainer Managerとは操作場所が違います。
+各手順に、ファイルを置く場所、起動方法、確認する表示を記載しています。
+
 ## 事前準備
 
-Docker EngineとDocker Compose（`docker compose` コマンド）が使える環境を用意します。Ubuntuで初めて用意する場合は [Dockerの導入手順](docs/reference/ubuntu-docker.md) を参照してください。
-
-このリポジトリをクローンするか、使用するブランチのZIPをダウンロードして展開します。既存環境を更新する場合は [更新方法](#更新方法) を参照してください。
-
-1. 展開先に `config` と `state` フォルダーを用意します。
-2. `mydns.conf.example` をコピーし、`config/mydns.conf` として保存します。
-3. `accounts.conf.example` をコピーし、`config/accounts.conf` として保存します。
-4. `accounts.conf` のID・PASSWORD・DOMAINを自分の情報に変更します。
+共通設定の記入例は [mydns.conf.example](mydns.conf.example)、アカウント設定の記入例は [accounts.conf.example](accounts.conf.example) です。
+実際の配置先とコピー操作は、上で選んだ環境の手順に従ってください。既存の設定を設定例で上書きしないでください。
 
 アカウントには次の3項目を記入します。すべて必須です。
 
-- ID：MyDNSのMasterID
+- ID：MyDNS.JPのMasterID
 - PASSWORD：MasterIDに対応するパスワード
 - DOMAIN：ログ表示用のドメイン名
 
-更新間隔などの共通設定は `mydns.conf` で調整します。
-
-```text
-mydns-updater/
-├── Dockerfile
-├── compose.yaml
-├── update.sh
-├── mydns.conf.example
-├── accounts.conf.example
-├── config/
-│   ├── mydns.conf
-│   └── accounts.conf
-└── state/
-```
-
-`state/state.conf` は起動後に自動生成されます。設定例は [mydns.conf.example](mydns.conf.example) と [accounts.conf.example](accounts.conf.example) を参照してください。
-
-## 起動方法
-
-準備したファイルを使い、ご利用の環境に合う方法で起動します。
-
-### 汎用Docker環境
-
-Docker Composeを使用します。コマンドは `compose.yaml` があるフォルダーで実行します。Dockerへアクセスする権限が必要です。Ubuntuの新規導入などで権限エラーになる場合は、以下の `docker` コマンドに `sudo` を付けて実行してください。
-
-**設定ファイルがまだない場合だけ**、展開先で次を実行します。設定済みの場合はこのコピーを飛ばし、起動操作へ進みます。
-
-```sh
-mkdir -p config state
-cp mydns.conf.example config/mydns.conf
-cp accounts.conf.example config/accounts.conf
-```
-
-すでに設定済みの場合はコピーせず、そのファイルを使用してください。アカウント情報の記入を終えたら、同じディレクトリで起動します。
-
-```sh
-docker compose up -d --build
-docker compose logs -f
-```
-
-起動ログのバージョンと通知結果を確認します。初回はイメージの構築が必要です。Ctrl+Cでログ表示を終了してもコンテナは動き続けます。
-
-導入手順を順に試し、設定変更・再起動・ヘルスチェックまで確認する場合は [Dockerの動作確認手順](docs/docker-testing.md) を参照してください。
-
-### Synology NAS（Container Manager）
-
-1. File Stationで、`docker` 共有フォルダー内に `mydns-updater` フォルダーを作ります。
-2. 上記のフォルダー構成を保って、プログラムと設定ファイルをアップロードします。
-3. Container Managerの「プロジェクト」から「作成」を開きます。
-4. プロジェクト名を `mydns-updater`、パスを作成したフォルダーにします。
-5. 配置済みの `compose.yaml` を指定し、画面の案内に従って構築・開始します。
-6. コンテナの「ログ」で、起動バージョンと通知結果を確認します。
-
-配置先の例は `/docker/mydns-updater` です。フォルダー名にバージョンを含める必要はありません。
-
-### Dockerを使わずに実行する場合
-
-[Linux直接実行の導入・運用手順](docs/linux.md) を参照してください。
-
 ## 設定ファイル
 
-共通設定は `config/mydns.conf`、アカウント設定は `config/accounts.conf` に記載します。以下は設定例の順番に説明しています。
+共通設定は `mydns.conf`、アカウント設定は `accounts.conf` に記載します。
+Docker・Synologyでは作業フォルダーの `config/`、Linux直接実行では既定で `/etc/mydns-updater/` に配置します。
+以下は設定例の順番に説明しています。
 
 各ファイル内の設定の順番は自由ですが、アカウント項目は対応するセクション行の下に置いてください。
 
@@ -107,7 +55,7 @@ docker compose logs -f
 | DEBUG | 詳細ログの表示 | 0（無効）、1で有効 |
 | IP_CHECK_URL1〜3 | IPv4取得先 | 下記の標準サービス |
 | **アカウント設定（accounts.conf）** | | |
-| ID | MyDNSのMasterID | アカウントごとに必須 |
+| ID | MyDNS.JPのMasterID | アカウントごとに必須 |
 | PASSWORD | MasterIDに対応するパスワード | アカウントごとに必須 |
 | DOMAIN | ログ表示用のドメイン名 | アカウントごとに必須 |
 
@@ -127,7 +75,7 @@ docker compose logs -f
 
 時刻の後ろにJST・UTC・EST/EDTなどの略称を表示し、夏時間にも対応します。
 
-省略時はAsia/Tokyo、空欄・不正値は警告してAsia/Tokyoを使用します。コンテナにインストール済みのzoneinfo名を指定してください。
+省略時はAsia/Tokyo、空欄・不正値は警告してAsia/Tokyoを使用します。実行環境にインストール済みのzoneinfo名を指定してください。
 
 絶対パスやPOSIX形式は使用できません。表示時刻を変えても、保存済みの成功時刻と更新期限は変わりません。
 
@@ -151,7 +99,7 @@ ID・パスワード・認証応答本文は記録しませんが、IPやログ�
 
 ### アカウント設定
 
-`config/accounts.conf` に記載します。共通設定をこのファイルに入れたり、アカウント設定を `mydns.conf` に残したりしないでください。
+`accounts.conf` に記載します。共通設定をこのファイルに入れたり、アカウント設定を `mydns.conf` に残したりしないでください。
 
 `[1]`、`[2]` のように、一意の1〜9桁の数字でアカウントを区切り、その下にID・PASSWORD・DOMAINを記載します。DOMAINはログ表示用ですが、省略できません。
 
@@ -170,7 +118,7 @@ ID・パスワード・認証応答本文は記録しませんが、IPやログ�
 
 ### 設定変更の反映
 
-`config/mydns.conf` または `config/accounts.conf` を編集して上書きすると、次の確認周期で自動的に読み直します。通常は再起動不要です。
+使用中の配置先にある `mydns.conf` または `accounts.conf` を編集して上書きすると、次の確認周期で自動的に読み直します。通常は再起動不要です。
 
 反映までの時間は処理時間とCHECK_INTERVALに依存するため、上書き直後に変わるとは限りません。
 
@@ -178,7 +126,7 @@ ID・パスワード・認証応答本文は記録しませんが、IPやログ�
 
 設定ファイルは読み取り専用で使用し、不正値を既定値に戻す場合もファイル自体は書き換えません。過去の起動ログも、起動時点の値のまま残ります。
 
-この動作にはComposeの `./config:/config:ro` によるフォルダーマウントを使用します。ファイルではなくconfigフォルダー自体を入れ替えた場合は、コンテナの再作成が必要です。
+Docker・Synologyでは、この動作にComposeの `./config:/config:ro` によるフォルダーマウントを使用します。ファイルではなくconfigフォルダー自体を入れ替えた場合は、コンテナの再作成が必要です。
 
 ## ログの見方
 
@@ -255,6 +203,10 @@ LAST_UPDATE=1789200000
 
 ## 更新方法
 
+実際の停止・ファイルの置き換え・開始操作は、[Synology](docs/synology.md#更新する場合)・[通常のDocker](docs/docker.md#更新する場合)・[Linux直接実行](docs/linux.md#更新方法)の手順に従ってください。
+以下は、旧版から引き継ぐ際の変更点です。複数の版をまたぐ場合は、途中の変更点も確認してください。
+
+
 ### v1.8.0からの更新
 
 update.shを更新するとv1.9.0になります。Docker・Synologyの自動復帰は、[別途の導入手順](docs/docker-recovery.md)で有効にします。設定ファイルとstateは保持します。Composeの変更はありません。
@@ -282,7 +234,7 @@ Container Managerではプロジェクトで使用中のYAMLにも変更を反�
 1. コンテナを停止し、既存の `config/mydns.conf` と `state` をバックアップします。
 2. 既存の `mydns.conf` からアカウントのセクション行・ID・PASSWORD・DOMAINを `config/accounts.conf` へ移します。無効にしているアカウントのコメントも一緒に移します。
 3. `config/mydns.conf` には共通設定だけを残します。更新間隔などは現在の値を引き継いでください。
-4. `update.sh` を新版へ上書きして開始します。既存のフォルダーマウント構成なら、再構築・再作成は不要です。
+4. 最新版へ更新する場合は、`update.sh` と `compose.yaml` を更新し、コンテナを再作成します。v1.6.0で追加したHealthcheck設定も反映してください。
 5. 起動ログのバージョン、設定エラーがないこと、次の更新成功を確認します。
 
 アカウント番号と `state/state.conf` を保持すれば、成功時刻と更新期限を引き継ぎます。サンプルを実設定に上書きしないでください。

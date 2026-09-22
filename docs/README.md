@@ -1,22 +1,41 @@
 # ドキュメント一覧
 
-[プロジェクトのREADME](../README.md) はDockerとSynology Container Managerでの導入・運用を説明します。
+## 使う環境を選ぶ
+
+入口は次の3つです。NAS上のUbuntu VMでDockerを使う場合は「通常のDocker」を選びます。
+
+| 環境 | 導入・運用 | 自動復帰を使う場合 |
+| --- | --- | --- |
+| Synology Container Manager | [Synologyの手順](synology.md) | [DSMの設定と確認](synology-recovery.md) |
+| 通常のDocker・Compose | [Dockerの手順](docker.md) | [systemdの設定と確認](docker-systemd-recovery.md) |
+| Linuxで直接実行（Dockerなし） | [Linuxの手順](linux.md) | [Linux直接実行の自動復帰](linux-recovery.md) |
+
+## 共通の説明と動作確認
+
+設定一覧・更新間隔・アカウント・通常ログの説明は[README](../README.md#設定ファイル)へまとめています。
+Dockerの自動復帰の条件・回数制限・ログの意味は[共通の仕組み](docker-recovery.md)を参照してください。
 
 | 資料 | 内容 |
 | --- | --- |
-| [Dockerの動作確認](docker-testing.md) | コマンドラインでの導入、模擬テスト、実通知、異常・復旧 |
-| [Docker・Synologyの自動復帰](docker-recovery.md) | 条件、回数制限、定期実行、導入と解除 |
-| [Linux導入・運用](linux.md) | 準備、配置、設定、サービス起動、定期監視、更新 |
-| [Linuxの自動復帰](linux-recovery.md) | 再起動条件、回数制限、導入、確認、手動解除 |
-| [Linuxの動作確認](linux-testing.md) | 実通知、異常・復旧、再起動、結果の保存 |
-| [テストの実行と結果](testing.md) | GitHub Actionsと手元での模擬テスト |
+| [テストの説明](testing.md) | GitHub Actions、手元の模擬テスト、実機確認の違いと確認済みの範囲 |
+| [Dockerの動作確認](docker-testing.md) | UbuntuのDockerで実通知・設定変更・手動での異常と復旧を確認 |
+| [Linuxの動作確認](linux-testing.md) | Dockerを使わず実通知・定期監視・OS再起動などを確認 |
 | [参考：UbuntuへのDocker導入](reference/ubuntu-docker.md) | Docker EngineとComposeの準備 |
-| [参考：DS1522+のUbuntu VM構築](reference/synology-vm.md) | Linuxの試験環境を用意する構成例 |
+| [参考：DS1522+のUbuntu VM構築](reference/synology-vm.md) | 試験用Ubuntuを用意する構成例 |
 
-[変更履歴](../CHANGELOG.md) と [ライセンス](../LICENSE) はリポジトリのルートに置いています。設定の記入例は実際にコピーして使うため、プログラムと同じ階層にあります。
+自動復帰の最終確認と記録の見方は、各環境の自動復帰手順に含めています。
+[変更履歴](../CHANGELOG.md)と[ライセンス](../LICENSE)はルートに置いています。
 
 ## 手順の読み方
 
 番号付きの手順は、各段階の確認が済んでから次へ進みます。
-「困ったときだけ」は問題が起きた場合、「必要な場合だけ」はその操作を希望する場合に限って実行します。
-継続運用と試験終了など、選択肢がある箇所はどちらか一方を選びます。すべてのコマンドを実行する必要はありません。
+コマンドは枠の中をコピーし、ユーザー名や入力待ちの記号は付けません。
+
+- 操作する端末がNAS、Ubuntu、Windowsのどれかを確かめます。
+- ファイルを配置したら、場所とファイル名を確認してから次へ進みます。
+- 「困ったときだけ」「必要な場合だけ」は、条件に当てはまる場合だけ開きます。
+- 継続運用と試験終了などの選択肢は、どちらか一方です。
+- エラーが出たら、その手順番号と表示を控え、原因を確認してから続けます。
+
+何も表示されないだけで失敗とは限りません。保存はファイルの中身、定期実行は実行記録で確認します。
+「次回の予定」「実際に実行した記録」「正常な結果」は、それぞれ分けて判断してください。

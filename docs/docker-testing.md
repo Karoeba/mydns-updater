@@ -1,6 +1,6 @@
 # Dockerの動作確認手順
 
-[資料一覧](README.md) ／ [Dockerの導入・運用](../README.md) ／ [テストの説明](testing.md)
+[資料一覧](README.md) ／ [Dockerの導入・運用](docker.md) ／ [テストの説明](testing.md)
 
 Ubuntu Server 24.04 LTS上のDocker EngineとComposeを使い、公開手順どおりの導入と動作を確認します。Docker未導入なら [UbuntuへのDocker導入](reference/ubuntu-docker.md) から進めます。
 
@@ -169,6 +169,8 @@ sudo docker inspect --format '{{.State.Health.Status}}' mydns-updater
 
 ## 5. 異常と復旧を確認する
 
+**この節は自動復帰を使わず、手動で再開する試験です。** 自動復帰を有効にしている場合は、この節の代わりに[Docker自動復帰の動作確認](docker-systemd-recovery.md#5-定期実行による自動復帰を1回試す)を行います。本ページのbefore.txt・after.txtや手順7の保存一覧は、手動復旧試験を行った場合のものです。
+
 試験用VMのコンテナだけで行います。ここでは更新処理だけを一時停止し、Docker側のヘルスチェックは動かしたままにします。`docker pause` や `docker compose stop` に置き換えません。
 
 ### 5-1. 正常な状態を確かめて保存する
@@ -197,10 +199,15 @@ cat ~/mydns-docker-results/before.txt
 
 ### 5-2. 一時停止して異常を確認する
 
-再開用のCONTコマンドまで確認してから、次を実行します。`--signal=STOP` は省略しません。
+再開用のCONTコマンドまで確認してから、次の枠をまとめて実行します。
+Dockerの再起動ポリシーを抑止しないよう、ホスト側から処理を一時停止します。
 
 ```sh
-sudo docker kill --signal=STOP mydns-updater
+sudo /bin/sh -c '
+pid=$(docker inspect --format "{{.State.Pid}}" mydns-updater) || exit 1
+[ "$pid" -gt 1 ] || exit 1
+kill -STOP "$pid" && echo "更新処理を一時停止しました"
+'
 ```
 
 次を30秒程度の間隔で再実行し、`unhealthy` になることを確認します。
@@ -222,7 +229,11 @@ sudo docker inspect --format '{{json .State.Health}}' mydns-updater > ~/mydns-do
 **結果にかかわらず、必ず次で更新処理を再開します。**
 
 ```sh
-sudo docker kill --signal=CONT mydns-updater
+sudo /bin/sh -c '
+pid=$(docker inspect --format "{{.State.Pid}}" mydns-updater) || exit 1
+[ "$pid" -gt 1 ] || exit 1
+kill -CONT "$pid" && echo "一時停止の解除を送りました"
+'
 ```
 
 次のコマンドを実行します。
@@ -255,7 +266,7 @@ cat ~/mydns-docker-results/health-recovered.json
 
 ここから先では **before.txtとafter.txtを上書きしません。** この2つは一時停止試験の前後を比べるための記録です。Docker版ではLinuxの監視スクリプトのUNHEALTHY／RECOVEREDログではなく、Dockerの状態と検査履歴を見ます。異常判定だけで自動再起動はしません。
 
-シグナルの送信方法は [Docker公式のkill説明](https://docs.docker.com/reference/cli/docker/container/kill/) に基づきます。
+自動復帰の試験では再起動回数が増えるのが正常です。この節の「再起動せずに復旧」と混同しないでください。
 
 ## 6. 設定変更・定期通知・再起動を確認する
 
@@ -385,4 +396,4 @@ Windowsへコピーしたら、ファイルを右クリックしてメモ帳な�
 - 設定再読み込み、定期通知、再起動後の状態引き継ぎ
 - 試験終了後の停止と運用環境への切り戻し
 
-この手順はコードとコマンドの点検を行ったものです。手順全体のUbuntu VMでの実行結果は、別途記録します。
+これまでの実機確認と、未確認の範囲は[テストの確認状況](testing.md#作者による確認状況)を参照してください。
