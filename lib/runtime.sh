@@ -3,19 +3,19 @@
 # Sourced by update.sh; not a standalone command.
 
 updater_defaults() {
-CONFIG_DIR="${MYDNS_CONFIG_DIR:-/config}"
-CONFIG="$CONFIG_DIR/mydns.conf"
-ACCOUNTS_CONFIG="$CONFIG_DIR/accounts.conf"
-DEBUG=0
-STATE_DIR="${MYDNS_STATE_DIR:-/state}"
-STATE_FILE="$STATE_DIR/state.conf"
-DEFAULT_TZ="Asia/Tokyo"
-TZ="$DEFAULT_TZ"
-export TZ
-umask 077
+    CONFIG_DIR="${MYDNS_CONFIG_DIR:-/config}"
+    CONFIG="$CONFIG_DIR/mydns.conf"
+    ACCOUNTS_CONFIG="$CONFIG_DIR/accounts.conf"
+    DEBUG=0
+    STATE_DIR="${MYDNS_STATE_DIR:-/state}"
+    STATE_FILE="$STATE_DIR/state.conf"
+    DEFAULT_TZ="Asia/Tokyo"
+    TZ="$DEFAULT_TZ"
+    export TZ
+    umask 077
 
-HEALTH_FILE="${MYDNS_HEALTH_FILE:-/tmp/mydns-updater.health}"
-HEALTH_ENABLED=0
+    HEALTH_FILE="${MYDNS_HEALTH_FILE:-/tmp/mydns-updater.health}"
+    HEALTH_ENABLED=0
 }
 cleanup() {
     if [ -n "$SLEEP_PID" ]; then
@@ -28,17 +28,17 @@ cleanup() {
 }
 
 initialize_runtime() {
-# Paths are launch-time options, not values read from the configuration files.
-case "$CONFIG_DIR" in /*) ;; *) fatal "[CONFIG] PATH_INVALID; MYDNS_CONFIG_DIR must be absolute" ;; esac
-case "$STATE_DIR" in /*) ;; *) fatal "[STATE] PATH_INVALID; MYDNS_STATE_DIR must be absolute" ;; esac
+    # Paths are launch-time options, not values read from the configuration files.
+    case "$CONFIG_DIR" in /*) ;; *) fatal "[CONFIG] PATH_INVALID; MYDNS_CONFIG_DIR must be absolute" ;; esac
+    case "$STATE_DIR" in /*) ;; *) fatal "[STATE] PATH_INVALID; MYDNS_STATE_DIR must be absolute" ;; esac
 
-WORK_DIR="$(mktemp -d)" || fatal "[INTERNAL] TEMP_CREATE_FAILED; check temporary storage"
-STATE_TMP=""
-SLEEP_PID=""
-trap cleanup 0
-trap 'exit 0' INT TERM
+    WORK_DIR="$(mktemp -d)" || fatal "[INTERNAL] TEMP_CREATE_FAILED; check temporary storage"
+    STATE_TMP=""
+    SLEEP_PID=""
+    trap cleanup 0
+    trap 'exit 0' INT TERM
 
-mkdir -p "$STATE_DIR" || fatal "[STATE] DIRECTORY_CREATE_FAILED; check permissions and storage"
+    mkdir -p "$STATE_DIR" || fatal "[STATE] DIRECTORY_CREATE_FAILED; check permissions and storage"
 }
 run_cycle() {
     debug "[CHECK] IPv4 check started"
@@ -114,26 +114,26 @@ run_cycle() {
 }
 
 run_forever() {
-STARTUP_LOGGED=0
-HEALTH_START="$(health_process_start "$$")"
-HEALTH_BOOT="$(cat /proc/sys/kernel/random/boot_id)"
-HEALTH_ENABLED=1
-while true; do
-    health_progress 0
-    CHECK_INTERVAL=300
-    if load_config; then
-        finish_config_diagnostics
-        if [ "$STARTUP_LOGGED" -eq 0 ]; then
-            log "[STARTUP] MyDNS updater v${VERSION} started: TZ=${TZ}, DEBUG=${DEBUG}, CHECK_INTERVAL=${CHECK_INTERVAL}s, FORCE_UPDATE_INTERVAL=${FORCE_UPDATE_INTERVAL}s"
-            STARTUP_LOGGED=1
+    STARTUP_LOGGED=0
+    HEALTH_START="$(health_process_start "$$")"
+    HEALTH_BOOT="$(cat /proc/sys/kernel/random/boot_id)"
+    HEALTH_ENABLED=1
+    while true; do
+        health_progress 0
+        CHECK_INTERVAL=300
+        if load_config; then
+            finish_config_diagnostics
+            if [ "$STARTUP_LOGGED" -eq 0 ]; then
+                log "[STARTUP] MyDNS updater v${VERSION} started: TZ=${TZ}, DEBUG=${DEBUG}, CHECK_INTERVAL=${CHECK_INTERVAL}s, FORCE_UPDATE_INTERVAL=${FORCE_UPDATE_INTERVAL}s"
+                STARTUP_LOGGED=1
+            fi
+            run_cycle
         fi
-        run_cycle
-    fi
-    health_progress "$CHECK_INTERVAL"
-    # Waiting on a background child lets TERM interrupt the interval promptly.
-    sleep "$CHECK_INTERVAL" &
-    SLEEP_PID=$!
-    wait "$SLEEP_PID"
-    SLEEP_PID=""
-done
+        health_progress "$CHECK_INTERVAL"
+        # Waiting on a background child lets TERM interrupt the interval promptly.
+        sleep "$CHECK_INTERVAL" &
+        SLEEP_PID=$!
+        wait "$SLEEP_PID"
+        SLEEP_PID=""
+    done
 }

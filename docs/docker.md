@@ -10,18 +10,20 @@ Docker未導入なら、先に[UbuntuへのDocker導入](reference/ubuntu-docker
 
 ## 1. 作業フォルダーを用意する
 
-使用する版を取得します。次はmainを新しいフォルダーへ取得する例で、公開済みリリースとは別です。
+使用する版を取得します。次はv1.10.0の試験用ブランチを新しいフォルダーへ取得する例です。まだmainにマージしていません。
 同名フォルダーがすでにある場合は取得を繰り返さず、中身を確認します。
 
 ```sh
-git clone --branch main --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
+git clone --branch v1.10.0-modular-core --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
 cd mydns-updater-docker
 pwd
-ls -l compose.yaml update.sh mydns.conf.example accounts.conf.example
+ls -l compose.yaml update.sh lib/*.sh mydns.conf.example accounts.conf.example
+grep '^VERSION=' update.sh
 ```
 
-**確認：** 現在の場所がmydns-updater-dockerで、指定した4ファイルが表示されます。
-ZIPで取得済みなら、その中身を置いたフォルダーへ移動して同じ4ファイルを確認します。
+**確認：** 現在の場所がmydns-updater-dockerで、指定した4ファイルとlib内の6ファイルが表示されます。
+バージョンは `1.10.0` です。
+ZIPで取得済みなら、その中身を置いたフォルダーへ移動して同じ一式を確認します。
 
 <details>
 <summary>再開するとき・compose.yamlが見つからないときだけ</summary>
@@ -114,23 +116,43 @@ DEBUG=0ではその周期のログが増えなくても正常です。
 ## 更新する場合
 
 [旧版からの変更点](../README.md#更新方法)を確認し、configとstateをバックアップします。
-プログラムだけを置き換える場合は、次で停止します。
+自動復帰を設定済みの場合だけ、先に [Docker自動復帰タイマー](docker-systemd-recovery.md) を止めます。
+
+```sh
+sudo systemctl stop mydns-updater-docker-recovery.timer mydns-updater-docker-recovery.service
+```
+
+自動復帰を使っていない場合は上の操作を飛ばします。次に、compose.yamlがある場所で更新コンテナを停止します。
 
 ```sh
 sudo docker compose stop
 ```
 
-update.shなど変更されたファイルを上書きしたら、開始します。設定例を実設定へコピーしません。
+同じv1.10.0のupdate.sh・libフォルダー全体・compose.yamlを上書きします。設定例を実設定へコピーしません。
+v1.9.0からの更新ではlibの読み込み設定が増えるため、停止したコンテナの開始だけでは足りません。
+次で配置を確認し、コンテナを再作成します。
 
 ```sh
-sudo docker compose start
-sudo docker compose logs --tail 50
+pwd
+ls -l update.sh lib/*.sh compose.yaml
+grep '^VERSION=' update.sh
+sudo docker compose config --quiet
 ```
 
-新しい起動バージョンと、設定エラーがないことを確認します。
+update.sh・lib内の6ファイル・compose.yamlが表示され、版が1.10.0、最後の構文確認でエラーがなければ続けます。
 
-**Composeの変更がある場合だけ：** 上のstartの代わりに `sudo docker compose up -d --force-recreate` で再作成します。
-Dockerfileや依存ソフトの変更がある場合は `sudo docker compose up -d --build --force-recreate` を使います。
+```sh
+sudo docker compose up -d --force-recreate
+sudo docker compose logs --tail 50
+sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}}' mydns-updater
+```
+
+起動バージョンが1.10.0で、設定エラーがなく、30〜60秒後に再確認して `running healthy` になれば成功です。
+stateを引き継ぐため、通知期限前は更新成功ログが増えなくても構いません。
+
+**自動復帰を最初に止めた場合だけ：** 確認後に `sudo systemctl start mydns-updater-docker-recovery.timer` で再開します。
+
+Dockerfileや依存ソフトも変更した場合だけ、再作成コマンドに `--build` を追加します。
 configとstateを削除する必要はありません。
 
 ## 詳しい動作確認と自動復帰

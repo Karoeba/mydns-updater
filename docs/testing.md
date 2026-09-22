@@ -14,6 +14,10 @@ PR作成・更新時とmainへのpush時に、次のジョブを実行します�
 | Documentation shell syntax | Ubuntu 24.04 | READMEとdocs内のsh／bashコード枠を構文検査。記載したコマンドは実行しません |
 | Linux direct execution | Ubuntu 24.04（Docker不使用） | 配置先指定8項目・ヘルスチェック7項目・監視判定13項目、自動復帰判定16項目、systemdの定期実行5項目・自動復帰5項目とサービス定義の検査 |
 
+v1.10.0では、Docker（Alpineのsh）とLinux直接実行（Ubuntuのsh）の両方で、分割したプログラムの配置試験も行います。
+空白を含む配置先・別の作業フォルダーからの起動、6ファイルのそれぞれが欠けた場合の停止を確認します。
+さらにコピー後の一式で、通知・設定再読み込み・状態保存・ヘルスチェックの既存テストを実行します。
+
 配置先指定の8項目は両環境で実行します。サービス定義の検査に加え、CI専用の名前と模擬応答を使い、実際のsystemdタイマーで異常・復旧・停止連動を確認します。実アカウントでの常駐運用の確認とは別です。
 
 結果はPRのChecksまたはActionsの各ジョブのログで確認できます。Docker側のレポートは成果物 `test-reports` として14日間保存されます。コンテナ起動前の失敗ではレポートがない場合があります。
@@ -49,7 +53,7 @@ docker compose -f tests/compose.yaml run --build --rm test
 
 模擬テスト中の外部通信は無効です。初回のイメージ取得など、構築には接続が必要です。
 
-結果は `tests/reports` に保存され、成功時は次の6つの結果を表示して終了します。
+結果は `tests/reports` に保存され、成功時は次の7種類の結果を表示して終了します。
 
 - `ALL TESTS PASSED (37 checks)`
 - `ALL DIAGNOSTIC TESTS PASSED (20 checks)`
@@ -57,8 +61,9 @@ docker compose -f tests/compose.yaml run --build --rm test
 - `ALL LINUX TESTS PASSED (8 checks)`
 - `ALL HEALTHCHECK TESTS PASSED (11 checks)`
 - `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`
+- `ALL PROGRAM LAYOUT TESTS PASSED`
 
-途中の失敗ログは異常系テストに含まれるため、6種類すべての最後の結果を確認してください。`tests/reports/result.txt` の `ALL TESTS PASSED` も成功の目印です。構築エラー時に古いレポートが残っている場合があるため、今回の端末表示とファイルの更新日時も確認します。
+途中の失敗ログは異常系テストに含まれるため、7種類すべての最後の結果を確認してください。`tests/reports/result.txt` の `ALL TESTS PASSED` も成功の目印です。構築エラー時に古いレポートが残っている場合があるため、今回の端末表示とファイルの更新日時も確認します。
 
 LinuxのDockerホストでは、設定の置き換え4項目とDockerの健康状態遷移3項目も追加で実行できます。
 
@@ -70,7 +75,7 @@ Dockerにsudoが必要な環境では `sudo sh tests/test-config-reload.sh` と�
 
 ### Synology Container Manager
 
-Container Managerでは、プロジェクトのパスを `tests` フォルダーにし、その中の `compose.yaml` を指定します。`tests/reports` を事前に作成し、`update.sh` は1つ上の階層に置いてください。
+Container Managerでは、プロジェクトのパスを `tests` フォルダーにし、その中の `compose.yaml` を指定します。`tests/reports` を事前に作成し、`update.sh` と `lib/` は1つ上の階層に置いてください。
 
 成功時の表示は上記のDockerテストと同じです。ホスト側の4＋3項目はこの操作では実行されません。設定の上書き反映とContainer Managerでの健康状態の変化は、別途確認します。
 
@@ -79,13 +84,14 @@ Container Managerでは、プロジェクトのパスを `tests` フォルダー
 展開したフォルダーの直下で実行します。
 
 ```sh
+sh tests/test-program-layout.sh
 sh tests/test-linux.sh
 sh tests/test-healthcheck-linux.sh
 sh tests/test-health-monitor.sh
 sh tests/test-health-recovery.sh
 ```
 
-`ALL LINUX TESTS PASSED (8 checks)` と `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`、`ALL MONITOR TESTS PASSED (13 checks)` に加え、`ALL RECOVERY TESTS PASSED (16 checks)` が出れば成功です。一時ディレクトリ内で模擬通信を使用し、実アカウントや既存設定には触れません。
+`ALL PROGRAM LAYOUT TESTS PASSED`、`ALL LINUX TESTS PASSED (8 checks)` と `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`、`ALL MONITOR TESTS PASSED (13 checks)` に加え、`ALL RECOVERY TESTS PASSED (16 checks)` が出れば成功です。一時ディレクトリ内で模擬通信を使用し、実アカウントや既存設定には触れません。
 
 必要なソフトの準備は [Linux導入手順](linux.md) を参照してください。監視テストにはutil-linuxのflockとcoreutilsのtimeoutを使います。
 
@@ -109,6 +115,16 @@ sh tests/test-health-recovery.sh
 UbuntuのDockerコマンドラインで導入から試す場合は [Dockerの動作確認手順](docker-testing.md) を参照してください。Dockerの導入準備、実アカウントの切り替え、通常設定での異常・復旧と記録方法を説明しています。
 
 Linuxでの異常・復旧、停止連動、OS再起動、結果保存は [Linuxの動作確認手順](linux-testing.md) を参照してください。
+
+### v1.10.0の確認範囲
+
+コード分割後のDocker・Linux直接実行の模擬テストと、Docker 24.0.2を含む自動復帰試験はGitHub Actionsで実行します。
+DS1522+・Ubuntu VMでのv1.10.0の実アカウント確認はこれからです。下記の旧版の確認結果とは分けて扱います。
+
+導入先では、使う環境の更新手順でlibの配置・バージョン・正常表示を確かめます。
+続いて通知期限後の成功、設定変更の反映、停止・再開を確認します。
+自動復帰を有効にしている場合だけ、環境別の手順で一時停止からの自動復帰と手動停止を1回ずつ確認します。
+複数環境で同じアカウントを同時に動かさず、先の環境を停止してから次へ移ります。
 
 ### 作者による確認状況
 

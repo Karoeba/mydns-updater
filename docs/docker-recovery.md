@@ -39,15 +39,15 @@ Dockerが表示するunhealthyをさらに3回数えるのではなく、毎回�
 
 ## 本番導入前に組み合わせを試す
 
-取得したv1.9.0の作業フォルダーで実行します。SynologyではNASへSSH接続した端末、UbuntuではUbuntu側の端末です。
+取得したv1.10.0の作業フォルダーで実行します。SynologyではNASへSSH接続した端末、UbuntuではUbuntu側の端末です。
 本番のconfigとstateをコピーする必要はありません。本番コンテナは動かしたままで構いません。
 
 ```sh
 pwd
-ls -l update.sh docker-health-recover.sh tests/test-docker-recovery-integration.sh
+ls -l update.sh lib/*.sh docker-health-recover.sh tests/test-docker-recovery-integration.sh
 ```
 
-指定した3ファイルが表示されたら実行します。見つからない場合は先へ進まず、取得した版と作業場所を確認してください。
+指定した3ファイルとlib内の6ファイルが表示されたら実行します。見つからない場合は先へ進まず、取得した版と作業場所を確認してください。
 
 ```sh
 sudo sh tests/test-docker-recovery-integration.sh --disposable-test > recovery-integration.log 2>&1

@@ -30,21 +30,22 @@ Linux直接実行版の作業フォルダーと分け、新しいフォルダー
 ```sh
 sudo apt update
 sudo apt install git nano
-git clone --branch main --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
+git clone --branch v1.10.0-modular-core --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
 cd mydns-updater-docker
 git rev-parse HEAD
 ```
 
-mainは開発版です。試す対象がPRや公開済みリリースの場合は、その対象のコードを取得してください。Git以外で取得した場合は、展開したフォルダーの `update.sh` がある場所へ移動し、取得元・版を控えます。
+この例はv1.10.0の試験用ブランチです。まだmainにマージしていません。Git以外で取得した場合は、展開したフォルダーの `update.sh` がある場所へ移動し、取得元・版を控えます。
 
 **確認：** 取得後、次を実行します。
 
 ```sh
 pwd
-ls -l compose.yaml update.sh mydns.conf.example accounts.conf.example
+ls -l compose.yaml update.sh lib/*.sh mydns.conf.example accounts.conf.example
+grep '^VERSION=' update.sh
 ```
 
-`pwd` は現在いるフォルダーを表示します。ユーザー名がtesterなら `/home/tester/mydns-updater-docker` です。その下に指定した4ファイルが表示されれば、正しい場所です。
+`pwd` は現在いるフォルダーを表示します。ユーザー名がtesterなら `/home/tester/mydns-updater-docker` です。その下に指定した4ファイルとlib内の6ファイルが表示されれば、正しい場所です。バージョンは `1.10.0` と表示されます。
 
 <details>
 <summary>再開するとき・場所が分からなくなったときだけ</summary>

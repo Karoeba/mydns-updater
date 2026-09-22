@@ -1,6 +1,6 @@
 # Linuxで自動復帰を有効にする
 
-この機能はv1.8.0で追加するLinux直接実行向けの機能です。初期状態では無効です。
+この機能はv1.8.0で追加したLinux直接実行向けの機能です。初期状態では無効です。
 先に [Linux導入手順](linux.md) で通常の更新とヘルスチェックが動くことを確認してください。
 
 DockerとSynology Container Managerの設定は、この手順では変更しません。
@@ -59,11 +59,11 @@ Docker版を導入していても、Linux直接実行版のサービスが用意
 
 ```sh
 pwd
-ls update.sh health-recover.sh deploy/linux/mydns-updater.service deploy/linux/mydns-updater-recovery.service deploy/linux/mydns-updater-recovery.timer
+ls update.sh lib/*.sh health-recover.sh deploy/linux/mydns-updater.service deploy/linux/mydns-updater-recovery.service deploy/linux/mydns-updater-recovery.timer
 grep '^VERSION=' update.sh
 ```
 
-5つのファイルが表示され、バージョンが `1.8.0` であることを確認します。
+5つのファイルとlib内の6ファイルが表示され、バージョンが `1.10.0` であることを確認します。
 `No such file or directory` が出た場合は、今いるフォルダーや取得した版を確認してください。
 
 ## 2. 停止してファイルを配置する
@@ -71,12 +71,15 @@ grep '^VERSION=' update.sh
 独自の配置先や実行ユーザーを使っている場合は、サービス設定をそのまま上書きせず、既存の指定を残して変更点を反映してください。
 自動復帰サービスの `MYDNS_UPDATER`、`MYDNS_HEALTH_FILE`、`MYDNS_RECOVERY_USER` も合わせます。
 
+自動復帰がすでに有効な場合だけ、先に末尾の「無効にする・更新する」に従って停止します。初回導入では不要です。
 設定ファイルと通知成功の記録はそのまま使います。
 更新サービスを停止し、プログラムとサービス設定をコピーします。
 
 ```sh
 sudo systemctl stop mydns-updater
 sudo install -o root -g root -m 644 update.sh /usr/local/lib/mydns-updater/update.sh
+sudo install -d -o root -g root -m 755 /usr/local/lib/mydns-updater/lib
+sudo install -o root -g root -m 644 lib/*.sh /usr/local/lib/mydns-updater/lib/
 sudo install -o root -g root -m 644 health-recover.sh /usr/local/lib/mydns-updater/health-recover.sh
 sudo install -o root -g root -m 644 deploy/linux/mydns-updater.service /etc/systemd/system/mydns-updater.service
 sudo install -o root -g root -m 644 deploy/linux/mydns-updater-recovery.service /etc/systemd/system/mydns-updater-recovery.service
@@ -88,7 +91,7 @@ sudo systemctl start mydns-updater
 配置と起動を確認します。
 
 ```sh
-ls -l /usr/local/lib/mydns-updater/health-recover.sh /etc/systemd/system/mydns-updater-recovery.service /etc/systemd/system/mydns-updater-recovery.timer
+ls -l /usr/local/lib/mydns-updater/lib/*.sh /usr/local/lib/mydns-updater/health-recover.sh /etc/systemd/system/mydns-updater-recovery.service /etc/systemd/system/mydns-updater-recovery.timer
 sudo systemctl status mydns-updater --no-pager
 sudo -u mydns-updater env MYDNS_HEALTH_FILE=/run/mydns-updater/health sh /usr/local/lib/mydns-updater/update.sh --healthcheck
 ```

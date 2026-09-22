@@ -2,7 +2,7 @@
 
 [環境を選ぶ](../README.md#起動方法) ／ [資料一覧](README.md)
 
-Dockerを使わず、同じ `update.sh` を実行できます。以下はUbuntu/Debianとsystemdを使用する例です。
+Dockerを使わず、同じ `update.sh` と `lib/` の一式を実行できます。以下はUbuntu/Debianとsystemdを使用する例です。
 
 systemdを使うArmbianやRaspberry Pi OS（旧Raspbian）でも同じ仕組みを利用できます。ただし、この手順とARM機での動作は未検証です。
 `ps -p 1 -o comm=` の結果が `systemd` であることを確認し、必要なコマンドや配置先も導入先に合わせて確認してください。
@@ -34,6 +34,7 @@ Ubuntu Server 24.04 LTS（DS1522+上のx86-64 VM）で、v1.7.0の実アカウ�
 | 配置先 | 役割・コピー元 |
 | --- | --- |
 | `/usr/local/lib/mydns-updater/update.sh` | 実行プログラム。配布ファイルの `update.sh` をコピー |
+| `/usr/local/lib/mydns-updater/lib/` | 機能ごとの処理。配布ファイルの `lib/` 内の6ファイルをコピー |
 | `/etc/mydns-updater/mydns.conf` | 共通設定。`mydns.conf.example` をコピーして編集 |
 | `/etc/mydns-updater/accounts.conf` | アカウント情報。`accounts.conf.example` をコピーして編集 |
 | `/var/lib/mydns-updater/state.conf` | 通知成功の記録。実行中に自動生成 |
@@ -58,10 +59,10 @@ sudo apt install curl ca-certificates tzdata git nano util-linux coreutils
 
 すでに対象の版を取得した場合は、次のclone操作を飛ばして「取得済みのファイルを確認する」へ進みます。
 
-以下はmainの開発版を新しいフォルダーへ取得する例です。PRの試験では、`--branch main` の `main` を対象のブランチ名に変更してから実行してください。公開済みリリースとは異なります。
+以下はv1.10.0の試験用ブランチを新しいフォルダーへ取得する例です。まだmainにマージしていません。公開済みリリースとは異なります。
 
 ```sh
-git clone --branch main --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater
+git clone --branch v1.10.0-modular-core --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater
 cd mydns-updater
 git rev-parse HEAD
 ```
@@ -74,17 +75,18 @@ Git・ZIPのどちらで取得した場合も、対象の版の `update.sh` が�
 
 ```sh
 pwd
-ls update.sh deploy/linux/mydns-updater.service
+ls update.sh lib/*.sh deploy/linux/mydns-updater.service
 grep '^VERSION=' update.sh
 ```
 
-ファイルが表示され、試す版と一致したら手順2へ進みます。`No such file or directory` や違う版が出た場合は、取得元とフォルダーを確認してから再確認します。
+update.sh・lib内の6ファイル・サービス定義が表示され、版が `1.10.0` と一致したら手順2へ進みます。`No such file or directory` や違う版が出た場合は、取得元とフォルダーを確認してから再確認します。
 
 ## 2. 導入前の模擬テスト
 
 実アカウントや既存設定に触れず、一時ディレクトリと模擬応答で確認します。Dockerもroot権限も不要です。
 
 ```sh
+sh tests/test-program-layout.sh
 sh tests/test-linux.sh
 sh tests/test-healthcheck-linux.sh
 sh tests/test-health-monitor.sh
@@ -92,6 +94,7 @@ sh tests/test-health-monitor.sh
 
 各コマンドの最後に、それぞれ次の成功表示が出ることを確認します。
 
+- `ALL PROGRAM LAYOUT TESTS PASSED`（その前に配置後のLinux・ヘルスチェックの成功表示も出ます）
 - `ALL LINUX TESTS PASSED (8 checks)`
 - `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`
 - `ALL MONITOR TESTS PASSED (13 checks)`
@@ -114,10 +117,20 @@ getent passwd mydns-updater >/dev/null || sudo useradd --system --user-group --n
 
 ```sh
 sudo install -d -m 755 /usr/local/lib/mydns-updater
-sudo install -m 644 update.sh /usr/local/lib/mydns-updater/update.sh
+sudo install -o root -g root -m 644 update.sh /usr/local/lib/mydns-updater/update.sh
+sudo install -d -o root -g root -m 755 /usr/local/lib/mydns-updater/lib
+sudo install -o root -g root -m 644 lib/*.sh /usr/local/lib/mydns-updater/lib/
 sudo install -d -o root -g mydns-updater -m 750 /etc/mydns-updater
 sudo install -d -o mydns-updater -g mydns-updater -m 700 /var/lib/mydns-updater
 ```
+
+配置を確認します。
+
+```sh
+ls -l /usr/local/lib/mydns-updater/update.sh /usr/local/lib/mydns-updater/lib/*.sh
+```
+
+update.shとlib内の6ファイルが表示され、所有者・グループがroot、権限が `-rw-r--r--` なら次へ進みます。
 
 ### 設定例をコピーして編集する
 
@@ -368,7 +381,8 @@ sudo systemctl stop mydns-updater
 
 2つの設定ファイルは同じディレクトリに置き、実行ユーザー `mydns-updater` が読み取れる権限を保ちます。状態の保存先には同ユーザーの書き込み権限も必要です。状態ファイルを引き継がない場合は初回扱いになります。
 
-プログラム自体の配置先も変える場合は、同じサービス設定内の次の行も変更します。
+プログラム自体の配置先も変える場合は、update.shと同じ場所にlibフォルダーも配置します。
+また、同じサービス設定内の次の行も変更します。
 
 ```ini
 ExecStart=/bin/sh /usr/local/lib/mydns-updater/update.sh
@@ -403,6 +417,55 @@ MYDNS_CONFIG_DIR=/etc/mydns-updater MYDNS_STATE_DIR=/var/lib/mydns-updater sh /u
 その配置先を読み書きできるユーザーで実行します。サービスと手動実行を同時に起動せず、複数プロセスで同じ状態ディレクトリを共有しないでください。
 
 ## 更新方法
+
+### v1.9.0からv1.10.0へ更新する
+
+設定項目・状態ファイル・サービス定義は変更していません。今回はupdate.shとlibを一緒に配置します。
+設定と状態をバックアップし、取得したv1.10.0のフォルダーで次を実行します。
+
+```sh
+pwd
+ls update.sh lib/*.sh
+grep '^VERSION=' update.sh
+```
+
+update.shとlib内の6ファイルが表示され、版が1.10.0なら続けます。
+
+**自動復帰を設定済みの場合だけ：** 次で一時的に止め、実行中の確認処理の終了を待ちます。
+
+```sh
+sudo systemctl stop mydns-updater-recovery.timer mydns-updater-recovery.service
+```
+
+自動復帰を使っていない場合は上の操作を飛ばします。更新サービスを停止し、一式を配置して開始します。
+標準の配置先を使う場合のコマンドです。独自の配置先を使う場合は、コピー先を合わせます。
+
+```sh
+sudo systemctl stop mydns-updater
+sudo install -o root -g root -m 644 update.sh /usr/local/lib/mydns-updater/update.sh
+sudo install -d -o root -g root -m 755 /usr/local/lib/mydns-updater/lib
+sudo install -o root -g root -m 644 lib/*.sh /usr/local/lib/mydns-updater/lib/
+ls -l /usr/local/lib/mydns-updater/update.sh /usr/local/lib/mydns-updater/lib/*.sh
+sudo systemctl start mydns-updater
+sudo systemctl status mydns-updater --no-pager
+sudo journalctl -u mydns-updater -n 30 --no-pager
+sudo -u mydns-updater env MYDNS_HEALTH_FILE=/run/mydns-updater/health sh /usr/local/lib/mydns-updater/update.sh --healthcheck
+```
+
+7ファイルが配置され、起動ログがv1.10.0、状態が `active (running)`、ヘルスチェックが `HEALTHY` なら成功です。
+起動直後で判定待ちの場合は、少し待って最後の確認コマンドだけを再実行します。
+stateを引き継ぐため、IP不変・通知期限前は通知を見送ります。
+
+**自動復帰を最初に止めた場合だけ：** 次で再開し、次回実行時刻を確認します。
+
+```sh
+sudo systemctl start mydns-updater-recovery.timer
+sudo systemctl list-timers --all mydns-updater-recovery.timer
+```
+
+### さらに古い版から更新する場合の追加事項
+
+上の一式の配置に加え、使用中の版に応じて次を確認します。
 
 v1.8.0では更新サービスの異常終了後の待機を10分とし、1時間に4回までの起動制限を追加しました。スクリプトに加えて `deploy/linux/mydns-updater.service` も更新します。独自の配置先を使っている場合は、その指定を保持してください。
 

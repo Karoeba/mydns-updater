@@ -8,7 +8,7 @@ NAS本体のContainer Managerで使う手順です。NAS上のUbuntu VMにDocker
 ## 1. ファイルを用意する
 
 Container Managerが使えるNASで、使用する版のZIPをダウンロードして展開します。
-mainのコードを使う場合は[mainのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/main.zip)を使います。公開済みリリースとは別です。
+今回の試験には[v1.10.0のZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.10.0-modular-core.zip)を使います。まだmainにマージしていない開発版です。
 
 File Stationで、共有フォルダー `docker` の中に `mydns-updater` を作り、展開した中身をアップロードします。
 フォルダー名にバージョンは入れません。ZIPの外側のフォルダーを重ねて入れないようにしてください。
@@ -20,6 +20,7 @@ docker/mydns-updater/
 ├── Dockerfile
 ├── compose.yaml
 ├── update.sh
+├── lib/                 # 6つの.shファイルをフォルダーごと配置
 ├── mydns.conf.example
 ├── accounts.conf.example
 ├── config/
@@ -32,7 +33,7 @@ docker/mydns-updater/
 accounts.confに自分のID・PASSWORD・DOMAINを記入します。
 stateは空のままで構いません。通知成功の記録は起動後に自動生成されます。
 
-**確認：** File Stationでmydns-updaterを開いた直下にcompose.yamlとupdate.shがあり、config内に2つの設定ファイルがあることを確認します。
+**確認：** File Stationでmydns-updaterを開いた直下にcompose.yamlとupdate.shがあり、lib内にconfig.sh・diagnostics.sh・health.sh・network.sh・runtime.sh・state.shがあり、config内に2つの設定ファイルがあることを確認します。
 READMEやtestsなどが残っていても構いません。模擬テストを行う場合はtestsも残します。
 
 ## 2. プロジェクトを作成する
@@ -73,12 +74,15 @@ File Stationなどで、使用中のconfig内の設定ファイルを編集・�
 ## 更新する場合
 
 1. [使用中の版からの変更点](../README.md#更新方法)を確認します。
-2. configとstateをバックアップし、Container Managerでプロジェクトを停止します。
-3. 変更されたプログラムファイルを上書きします。設定例を実設定へ上書きしません。
-4. update.shだけの変更なら、プロジェクトを開始します。
-5. 新しい起動バージョン、健康状態、設定エラーがないことを確認します。
+2. 自動復帰を設定済みの場合だけ、DSMのタスクスケジューラで該当タスクの有効チェックを外し、適用します。実行中の処理が終わってから続けます。
+3. configとstateをバックアップし、Container Managerでプロジェクトを停止します。
+4. 同じv1.10.0のupdate.sh・libフォルダー全体・compose.yamlを上書きします。設定例を実設定へ上書きしません。
+5. 手順1の配置図と照合し、lib内に6つの.shファイルがあることを確認します。
+6. プロジェクトで使用中のYAMLにも `./lib:/app/lib:ro` があることを確認します。プロジェクトの「クリーンアップ」後に「構築」でコンテナを再作成・開始します。config・stateやプロジェクトの保存フォルダーは削除しません。
+7. 起動ログがv1.10.0で、健康状態が「正常」、設定エラーがないことを確認します。
+8. 手順2で自動復帰を止めた場合だけ、有効チェックを戻して適用し、[定期実行の確認](synology-recovery.md#4-定期実行を確認する)を行います。
 
-**compose.yamlの変更がある場合だけ：** 手順4では、プロジェクトが実際に使用するYAMLへ変更を反映し、コンテナを再作成します。
+**v1.9.0からの更新ではComposeの変更があるため、停止・開始だけでは反映されません。**
 保存名がdocker-compose.ymlになっている場合もあるため、使用中のファイルを確認します。
 Dockerfileや依存ソフトの変更がある場合はイメージも再構築します。
 

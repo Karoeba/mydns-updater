@@ -7,7 +7,7 @@ NAS本体のSSHとDSMを使います。以下ではボリュームをvolume1、�
 
 ## 始める前に
 
-v1.9.0以降のファイルを用意します。[mainのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/main.zip)を取得した場合は展開します。
+今回の試験ではv1.10.0のファイルを用意します。[試験用ブランチのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.10.0-modular-core.zip)を取得した場合は展開します。
 初回の導入確認には、本番とは別の `/volume1/docker/mydns-recovery-check` に中身を置きます。
 
 NASのSSHで次を実行し、作業場所を確認します。
@@ -15,14 +15,14 @@ NASのSSHで次を実行し、作業場所を確認します。
 ```sh
 cd /volume1/docker/mydns-recovery-check
 pwd
-ls -l update.sh docker-health-recover.sh tests/test-docker-recovery-integration.sh
+ls -l update.sh lib/*.sh docker-health-recover.sh tests/test-docker-recovery-integration.sh
 ```
 
-3ファイルが表示されたら、[試験専用コンテナでの確認](docker-recovery.md#本番導入前に組み合わせを試す)を行います。
+3ファイルとlib内の6ファイルが表示されたら、[試験専用コンテナでの確認](docker-recovery.md#本番導入前に組み合わせを試す)を行います。
 この確認を同じ版ですでに済ませた場合は繰り返さず、次へ進みます。
 
-[Synologyの更新手順](synology.md#更新する場合)で本番のupdate.shをv1.9.0にし、起動ログを確認します。
-configとstateは保持します。v1.8.0からの場合、Composeの変更はありません。
+[Synologyの更新手順](synology.md#更新する場合)で本番のプログラム一式をv1.10.0にし、起動ログを確認します。
+configとstateは保持します。v1.10.0ではlibの配置とComposeの変更があるため、更新手順に従って再作成します。
 
 ```sh
 sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}} {{.HostConfig.RestartPolicy.Name}}' mydns-updater

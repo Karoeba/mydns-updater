@@ -9,13 +9,14 @@
 
 ## 1. 試験ファイルを別のフォルダーに用意する
 
-[docker-recovery-validationブランチのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/docker-recovery-validation.zip)をダウンロードして展開します。
+[v1.10.0-modular-coreブランチのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.10.0-modular-core.zip)をダウンロードして展開します。
 
 File Stationで、展開した中身を次の場所にアップロードしてください。
 
 ```text
 /volume1/docker/mydns-recovery-check/
 ├── update.sh
+├── lib/（6つの.shファイル）
 └── tests/
     └── test-docker-cooperative-recovery.sh
 ```
@@ -31,11 +32,11 @@ Container Managerでプロジェクトを作る必要はありません。
 ```sh
 cd /volume1/docker/mydns-recovery-check
 pwd
-ls -l update.sh tests/test-docker-cooperative-recovery.sh
+ls -l update.sh lib/*.sh tests/test-docker-cooperative-recovery.sh
 ```
 
 正しく進めば、最初に/volume1/docker/mydns-recovery-checkが表示され、
-その下にupdate.shとtests/test-docker-cooperative-recovery.shの2つが表示されます。
+その下にupdate.shとtests/test-docker-cooperative-recovery.shの2つとlib内の6ファイルが表示されます。
 
 「No such file or directory」が出た場合は、ここで止めて配置を確認してください。
 ZIPの外側のフォルダーが余分に入っている可能性があります。

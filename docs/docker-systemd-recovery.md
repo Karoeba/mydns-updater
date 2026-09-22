@@ -10,10 +10,10 @@ systemdの「サービス」は監視コマンドを1回実行する設定、「
 
 ## 1. 対象とファイルを確認する
 
-[Dockerの導入・更新手順](docker.md)で、コンテナ内のupdate.shをv1.9.0にします。
+[Dockerの導入・更新手順](docker.md)で、コンテナ内のプログラム一式をv1.10.0にします。
 旧mainや別の試験用フォルダーのファイルを使わないよう、取得した版も確認します。
 
-以下はv1.9.0のファイルを置いたフォルダーで実行します。ホーム内に取得した場合の例です。
+以下はv1.10.0のファイルを置いたフォルダーで実行します。ホーム内に取得した場合の例です。
 
 ```sh
 cd ~/mydns-updater-docker
@@ -24,7 +24,7 @@ ps -p 1 -o comm=
 sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}} {{.HostConfig.RestartPolicy.Name}}' mydns-updater
 ```
 
-**確認：** v1.9.0のファイル、指定した3ファイル、`systemd`、`running healthy unless-stopped` が確認できれば進めます。
+**確認：** v1.10.0のファイル、指定した3ファイル、`systemd`、`running healthy unless-stopped` が確認できれば進めます。
 この版で初めて試す場合は、先に[試験専用コンテナでの確認](docker-recovery.md#本番導入前に組み合わせを試す)を行います。
 
 ## 2. 監視用ファイルを配置する

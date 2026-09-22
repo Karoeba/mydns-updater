@@ -17,6 +17,7 @@ Dockerの自動復帰の条件・回数制限・ログの意味は[共通の仕�
 
 | 資料 | 内容 |
 | --- | --- |
+| [開発向け：コードの構成](development.md) | 各ファイルの役割、依存関係、変更時の確認 |
 | [テストの説明](testing.md) | GitHub Actions、手元の模擬テスト、実機確認の違いと確認済みの範囲 |
 | [Dockerの動作確認](docker-testing.md) | UbuntuのDockerで実通知・設定変更・手動での異常と復旧を確認 |
 | [Linuxの動作確認](linux-testing.md) | Dockerを使わず実通知・定期監視・OS再起動などを確認 |

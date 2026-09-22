@@ -8,7 +8,7 @@ MyDNS.JPへIPv4アドレスを自動通知する軽量な常駐ツールです�
 
 Dockerを使わずに動かす [Linux直接実行版](docs/linux.md) も用意しています。Ubuntu Server 24.04 LTS（DS1522+上のx86-64 VM）で動作確認済みです。ARM機や他のLinux環境は未検証です。
 
-現在のコードはv1.9.0です。v1.9.0のReleaseは未公開です。公開済みの版は [公開済みリリース](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
+このブランチはv1.10.0の開発版です。Releaseは未公開です。公開済みの版は [公開済みリリース](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
 
 導入・テスト・参考資料は [ドキュメント一覧](docs/README.md) から参照できます。
 
@@ -207,9 +207,19 @@ LAST_UPDATE=1789200000
 以下は、旧版から引き継ぐ際の変更点です。複数の版をまたぐ場合は、途中の変更点も確認してください。
 
 
+### v1.9.0からの更新
+
+処理を機能ごとのファイルへ分割しました。設定項目・通知条件・状態ファイルの形式は同じです。
+
+- プログラムは同じ版の `update.sh` と `lib/` 内の6ファイルを一緒に配置します。
+- Docker・Synologyでは `compose.yaml` に `./lib:/app/lib:ro` が追加されるため、コンテナを再作成します。
+- Linuxでは `/usr/local/lib/mydns-updater/lib/` を追加します。具体的な操作は上の環境別手順を使います。
+
+**古い版から直接v1.10.0へ更新する場合も、この変更が必要です。** 以下は各版で加わった変更点です。
+
 ### v1.8.0からの更新
 
-update.shを更新するとv1.9.0になります。Docker・Synologyの自動復帰は、[別途の導入手順](docs/docker-recovery.md)で有効にします。設定ファイルとstateは保持します。Composeの変更はありません。
+v1.9.0ではDocker側の自動復帰を追加しました。Docker・Synologyの自動復帰は、[別途の導入手順](docs/docker-recovery.md)で有効にします。設定ファイルとstateは保持します。v1.8.0からv1.9.0の間ではComposeの変更はありません。
 
 ### v1.7.0からの更新
 
@@ -234,7 +244,7 @@ Container Managerではプロジェクトで使用中のYAMLにも変更を反�
 1. コンテナを停止し、既存の `config/mydns.conf` と `state` をバックアップします。
 2. 既存の `mydns.conf` からアカウントのセクション行・ID・PASSWORD・DOMAINを `config/accounts.conf` へ移します。無効にしているアカウントのコメントも一緒に移します。
 3. `config/mydns.conf` には共通設定だけを残します。更新間隔などは現在の値を引き継いでください。
-4. 最新版へ更新する場合は、`update.sh` と `compose.yaml` を更新し、コンテナを再作成します。v1.6.0で追加したHealthcheck設定も反映してください。
+4. 最新版へ更新する場合は、`update.sh`・`lib/`・`compose.yaml` を更新し、コンテナを再作成します。v1.6.0で追加したHealthcheck設定も反映してください。
 5. 起動ログのバージョン、設定エラーがないこと、次の更新成功を確認します。
 
 アカウント番号と `state/state.conf` を保持すれば、成功時刻と更新期限を引き継ぎます。サンプルを実設定に上書きしないでください。
@@ -252,7 +262,7 @@ Container Managerでは、プロジェクトが実際に使用しているYAML�
 
 ### 今後の更新
 
-`config` と `state` を保持して更新します。`update.sh` だけの変更は停止・上書き・開始で反映できます。
+`config` と `state` を保持して更新します。プログラムを更新するときは停止し、同じ版の `update.sh` と `lib/` を一式で置き換えてから開始します。
 
 Composeのマウント変更は再作成、Dockerfileや依存ソフトの変更は再構築が必要です。
 

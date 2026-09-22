@@ -59,6 +59,9 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - name: Check program shell syntax
+        run: |
+          for file in update.sh lib/*.sh; do sh -n "$file"; done
       - name: Test without Docker
         run: |
           sh tests/test-linux.sh
