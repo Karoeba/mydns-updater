@@ -123,6 +123,12 @@ nanoはCtrl＋O、Enterで保存し、Ctrl＋Xで終了します。
 
 ## 4. 構築して開始する
 
+付属のcompose.yamlには定期ヘルスチェックが含まれています。
+この手順で構築すれば自動的に有効になり、別の監視タイマーを追加する必要はありません。
+ただし、異常時の自動復帰は別途設定する機能です。
+
+### 4-1. 起動と通知を確認する
+
 同じ実アカウントのNASやLinux直接実行版が動いている場合は、先にそちらを停止します。
 同じDocker環境にmydns-updaterコンテナがある場合は、新規導入を重ねず用途を確認します。
 
@@ -143,11 +149,10 @@ sudo docker compose up -d --build
 ```sh
 sudo docker compose ps
 sudo docker compose logs --tail 50
-sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}}' mydns-updater
 ```
 
 **確認：** 起動ログのバージョンと各アカウントの `MyDNS update: OK` を確認します。
-状態は `running healthy` が目印です。`starting` なら30〜60秒待ち、最後の確認コマンドを再実行します。
+健康状態は次の4-2で確認します。
 
 通知成功の記録も確認します。
 
@@ -157,6 +162,20 @@ sudo ls -l state/state.conf
 
 ファイルが表示されれば生成されています。既存stateを引き継いだ場合は、IP不変・通知期限前なら通知を見送ります。
 DEBUG=0ではその周期のログが増えなくても正常です。
+
+### 4-2. 自動で有効になったヘルスチェックを確認する
+
+```sh
+sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}}' mydns-updater
+```
+
+**成功：** `running healthy` と表示されます。
+起動直後のstartingは判定待ちです。30〜60秒程度待ち、同じコマンドを再実行します。
+定期確認はこのコマンドを閉じた後もDockerが続けます。手動で毎回実行する必要はありません。
+
+unhealthyは異常判定ですが、その表示だけでは自動再起動しません。
+処理が固まった場合の復帰も必要なら、基本の導入確認後に[自動復帰](docker-systemd-recovery.md)を追加します。
+プロセスが終了した際の再起動設定は、付属Composeに含まれる別の仕組みです。
 
 **ここまでで基本の導入は完了です。**
 開発版の検証は[Dockerの動作確認](docker-testing.md)の手順1へ進みます。

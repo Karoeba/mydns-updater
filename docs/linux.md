@@ -279,6 +279,10 @@ sudo journalctl -u mydns-updater -n 100 --no-pager
 
 ## 5. ヘルスチェックを手動で確認する
 
+確認機能と進行記録は、ここまでの通常導入に含まれています。
+ただし、Linux直接実行ではまだ定期確認は設定していません。次のコマンドは、その場で1回だけ確認するものです。
+Docker・Container Managerは付属Composeで定期確認が有効になるため、この点が異なります。
+
 ```sh
 sudo -u mydns-updater env MYDNS_HEALTH_FILE=/run/mydns-updater/health sh /usr/local/lib/mydns-updater/update.sh --healthcheck
 health_result=$?
@@ -294,6 +298,8 @@ HEALTHY: updater progressing or waiting
 
 UNHEALTHY、MODULE_UNAVAILABLE、終了コード0以外なら、表示と手順4のログを確認してから続けます。
 この確認は通知成功とは別です。追加の通信は行いません。
+定期確認を使いたい場合は手順6で「異常の記録だけ」か「自動復帰」を選びます。
+自動復帰にも定期確認があるため、両方のタイマーを導入する必要はありません。
 
 **これで基本の導入は完了です。** 次は目的に合う行を1つ選びます。
 
