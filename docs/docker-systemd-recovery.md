@@ -8,6 +8,28 @@ SynologyのNAS本体には、このサービスを導入しません。
 systemdの「サービス」は監視コマンドを1回実行する設定、「タイマー」はそれを繰り返す設定です。
 ここで追加するのはDocker用の監視です。Linux直接実行版のmydns-updater.serviceは使いません。
 
+**進む順番：** 通常の通知・healthyを確認 → 1 対象確認 → 2 配置 → 3〜4 定期実行 → 5 自動復帰の試験。
+Dockerの動作確認から来た場合は、5-4の記録まで終えて[同資料の手順7](docker-testing.md#7-記録して終了する)へ戻ります。
+その場合、この資料の手順6で先に停止・切り戻しをしません。
+
+## 追加するファイルの配置
+
+次はコンテナ内ではなく、Ubuntuホスト上の配置です。
+
+```text
+/
+├── usr/local/lib/mydns-updater/
+│   └── docker-health-recover.sh
+├── etc/systemd/system/
+│   ├── mydns-updater-docker-recovery.service
+│   └── mydns-updater-docker-recovery.timer
+└── var/lib/mydns-updater-docker-recovery/
+    └── status                  ← 復帰履歴。自動生成
+```
+
+更新プログラムとconfig・stateは、引き続き~/mydns-updater-docker側にあります。
+監視用のファイルだけを上の場所へコピーします。
+
 ## 1. 対象とファイルを確認する
 
 [Dockerの導入・更新手順](docker.md)で、コンテナ内のプログラム一式をv1.10.0にします。
@@ -152,6 +174,9 @@ kill -STOP "$pid" && echo "更新処理を一時停止しました"
 sudo journalctl -u mydns-updater-docker-recovery.service --since '1 minute ago' -f
 ```
 
+`Starting` → `Deactivated successfully` → `Finished` が繰り返されるのは、監視が1回ずつ正常終了している表示です。
+この表示だけでは自動復帰の成功ではありません。下のRECOVEREDまで待ちます。
+
 サービスを手動実行せず、定期実行に任せて待ちます。
 手動のCONTや再起動は行いません。処理の進行期限が切れ、期限超過を3回続けて確認すると復帰を試みます。
 
@@ -235,6 +260,10 @@ BLOCKEDの場合も、そのまま履歴を消して試験を繰り返しませ�
 </details>
 
 ## 6. VMでの試験を終了する場合
+
+**Dockerの動作確認から来た場合は、この節を実行せず[元の手順7](docker-testing.md#7-記録して終了する)へ戻ります。**
+この資料だけで試験を終える場合に、以下を使います。
+
 
 **VMで運用を続ける場合は、この節の停止操作は行いません。**
 試験を終えてNASの運用へ戻す場合は、記録を保存してからUbuntu側を停止します。

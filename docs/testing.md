@@ -4,6 +4,21 @@
 
 模擬テストでは通信結果を用意してプログラムの処理を確認します。実際のMyDNS.JPへの通知成功や、NAS・Linux機での継続動作は、実アカウントを設定して別途確認します。
 
+## 2種類のテストと使う順番
+
+| 種類 | 実アカウント | 行う時期 | 確認できること |
+| --- | --- | --- | --- |
+| 模擬テスト | 不要 | コード取得後、通常導入前 | 用意した正常・異常応答に対する処理 |
+| 導入後の動作確認 | 使用する | 配置・設定・起動後 | 実際の通知、設定変更、状態保存、起動・停止 |
+
+開発版の検証では両方を行います。通常導入では模擬テストは任意ですが、導入後の通知成功と正常状態は確認します。
+監視・自動復帰は通常動作の確認後、使う場合だけ追加します。
+詳しい操作は[Linux](linux.md)・[Docker](docker.md)・[Container Manager](synology.md)の入口から進めます。
+
+**合否の読み方：** 模擬テストには、故意にエラーを起こす項目があります。
+途中のERRORなどではなく、各テストの成功表示と、テストコマンド全体の終了コード0を確認します。
+実際の運用ログのエラーまで「試験だから正常」と扱わないでください。
+
 ## GitHub Actionsによる自動テスト
 
 PR作成・更新時とmainへのpush時に、次のジョブを実行します。Actionsの「Docker tests」から手動実行もできます。このワークフロー名にはDockerとありますが、Linux直接実行のテストも含みます。
@@ -48,7 +63,9 @@ GitHubからダウンロードしたコードを、導入先でも模擬テス�
 
 ```sh
 mkdir -p tests/reports
-docker compose -f tests/compose.yaml run --build --rm test
+sudo docker compose -f tests/compose.yaml run --build --rm test
+test_result=$?
+printf '模擬テストの終了コード: %s\n' "$test_result"
 ```
 
 模擬テスト中の外部通信は無効です。初回のイメージ取得など、構築には接続が必要です。
@@ -63,19 +80,42 @@ docker compose -f tests/compose.yaml run --build --rm test
 - `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`
 - `ALL PROGRAM LAYOUT TESTS PASSED`
 
-途中の失敗ログは異常系テストに含まれるため、7種類すべての最後の結果を確認してください。`tests/reports/result.txt` の `ALL TESTS PASSED` も成功の目印です。構築エラー時に古いレポートが残っている場合があるため、今回の端末表示とファイルの更新日時も確認します。
+終了コード0と、7種類すべての最後の結果を確認してください。同じ成功表示が複数回出ても正常です。
+実行中はログをファイルへためているため、しばらく表示が増えない場合があります。入力待ちへ戻るまで待ちます。`tests/reports/result.txt` の `ALL TESTS PASSED` も成功の目印です。構築エラー時に古いレポートが残っている場合があるため、今回の端末表示とファイルの更新日時も確認します。
 
 LinuxのDockerホストでは、設定の置き換え4項目とDockerの健康状態遷移3項目も追加で実行できます。
 
 ```sh
-sh tests/test-config-reload.sh
+sudo sh tests/test-config-reload.sh
+test_result=$?
+printf '追加テストの終了コード: %s\n' "$test_result"
 ```
 
-Dockerにsudoが必要な環境では `sudo sh tests/test-config-reload.sh` とします。成功時は `ALL CONFIG RELOAD TESTS PASSED (4 checks)` と `ALL DOCKER HEALTHCHECK TESTS PASSED (3 checks)` を表示します。実アカウントは使用しません。ヘルスチェックの待機・検査間隔を短縮し、期限切れも模擬的に作る試験です。
+終了コード0で、成功時は `ALL CONFIG RELOAD TESTS PASSED (4 checks)` と `ALL DOCKER HEALTHCHECK TESTS PASSED (3 checks)` を表示します。実アカウントは使用しません。ヘルスチェックの待機・検査間隔を短縮し、期限切れも模擬的に作る試験です。
 
 ### Synology Container Manager
 
-Container Managerでは、プロジェクトのパスを `tests` フォルダーにし、その中の `compose.yaml` を指定します。`tests/reports` を事前に作成し、`update.sh` と `lib/` は1つ上の階層に置いてください。
+File Stationで、取得したmydns-updater内のtestsにreportsフォルダーを作ります。
+update.shとlibはtestsの1つ上に置きます。
+
+```text
+docker/mydns-updater/
+├── update.sh
+├── lib/
+└── tests/
+    ├── compose.yaml
+    └── reports/
+```
+
+Container Managerで、本番と別名のテスト用プロジェクトを作成します。
+パスは `/docker/mydns-updater/tests`、YAMLはその中のcompose.yamlを指定して構築・実行します。
+
+**成功：** テスト用コンテナが終了コード0で停止し、reports/result.txtにALL TESTS PASSED、
+今回のtest.logに上記7種類の成功表示があれば成功です。更新日時も今回の時刻になっていることを確認します。
+このコンテナが終了するのは正常で、運用コンテナのように動かし続けるものではありません。
+
+**失敗：** 終了コード0以外、TESTS FAILED、構築エラー、今回の記録がない場合は先へ進みません。
+コンテナのログとreports/test.logを確認します。古い成功記録だけで判断しません。
 
 成功時の表示は上記のDockerテストと同じです。ホスト側の4＋3項目はこの操作では実行されません。設定の上書き反映とContainer Managerでの健康状態の変化は、別途確認します。
 
@@ -84,14 +124,16 @@ Container Managerでは、プロジェクトのパスを `tests` フォルダー
 展開したフォルダーの直下で実行します。
 
 ```sh
-sh tests/test-program-layout.sh
-sh tests/test-linux.sh
-sh tests/test-healthcheck-linux.sh
-sh tests/test-health-monitor.sh
+sh tests/test-program-layout.sh &&
+sh tests/test-linux.sh &&
+sh tests/test-healthcheck-linux.sh &&
+sh tests/test-health-monitor.sh &&
 sh tests/test-health-recovery.sh
+test_result=$?
+printf '模擬テストの終了コード: %s\n' "$test_result"
 ```
 
-`ALL PROGRAM LAYOUT TESTS PASSED`、`ALL LINUX TESTS PASSED (8 checks)` と `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`、`ALL MONITOR TESTS PASSED (13 checks)` に加え、`ALL RECOVERY TESTS PASSED (16 checks)` が出れば成功です。一時ディレクトリ内で模擬通信を使用し、実アカウントや既存設定には触れません。
+`ALL PROGRAM LAYOUT TESTS PASSED`、`ALL LINUX TESTS PASSED (8 checks)` と `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`、`ALL MONITOR TESTS PASSED (13 checks)` に加え、`ALL RECOVERY TESTS PASSED (16 checks)` がすべて出て、終了コード0なら成功です。一時ディレクトリ内で模擬通信を使用し、実アカウントや既存設定には触れません。
 
 必要なソフトの準備は [Linux導入手順](linux.md) を参照してください。監視テストにはutil-linuxのflockとcoreutilsのtimeoutを使います。
 
@@ -119,7 +161,9 @@ Linuxでの異常・復旧、停止連動、OS再起動、結果保存は [Linux
 ### v1.10.0の確認範囲
 
 コード分割後のDocker・Linux直接実行の模擬テストと、Docker 24.0.2を含む自動復帰試験はGitHub Actionsで実行します。
-DS1522+・Ubuntu VMでのv1.10.0の実アカウント確認はこれからです。下記の旧版の確認結果とは分けて扱います。
+Ubuntu 26.04系のVM上のDockerで、利用者から導入・自動復帰を含む試験完了の報告を受けています。復帰前の監視実行画面を確認し、最終成功は利用者報告として扱います。
+Ubuntuの正確な版番号と最終ログは未照合です。v1.10.0のLinux直接実行・NASへの更新確認・ARM検証は未完了です。
+下記の旧版の確認結果とは分けて扱います。
 
 導入先では、使う環境の更新手順でlibの配置・バージョン・正常表示を確かめます。
 続いて通知期限後の成功、設定変更の反映、停止・再開を確認します。

@@ -5,6 +5,27 @@
 NAS本体のSSHとDSMを使います。以下ではボリュームをvolume1、コンテナ名をmydns-updaterとしています。
 配置が異なる場合は実際の場所に合わせます。Ubuntu VMの端末では行いません。
 
+**進む順番：** 通常の通知・正常表示を確認 → 試験専用コンテナで確認 → 1〜3 配置とDSM登録 → 4 定期実行 → 5 自動復帰の試験。
+本番の設定・通知確認が済んでいれば、初回導入からやり直しません。
+模擬試験と、本番の定期実行・自動復帰は別の確認です。
+
+## 配置の全体像
+
+```text
+/volume1/docker/
+├── mydns-updater/                   ← 通常運用の一式とconfig・state
+├── mydns-recovery-check/            ← 試験用に取得した一式
+└── mydns-recovery/                  ← この手順で用意する監視用
+    ├── docker-health-recover.sh
+    ├── run.sh                      ← 配置先を指定して呼び出す
+    ├── recovery.log                ← DSMの定期実行で生成
+    └── state/
+        └── status                  ← 復帰履歴。自動生成
+```
+
+試験用フォルダーと監視用フォルダーは用途が違います。
+mydns-updater/stateの通知成功記録を、mydns-recovery/stateへコピーする必要はありません。
+
 ## 始める前に
 
 今回の試験ではv1.10.0のファイルを用意します。[試験用ブランチのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.10.0-modular-core.zip)を取得した場合は展開します。
@@ -21,7 +42,8 @@ ls -l update.sh lib/*.sh docker-health-recover.sh tests/test-docker-recovery-int
 3ファイルとlib内の6ファイルが表示されたら、[試験専用コンテナでの確認](docker-recovery.md#本番導入前に組み合わせを試す)を行います。
 この確認を同じ版ですでに済ませた場合は繰り返さず、次へ進みます。
 
-[Synologyの更新手順](synology.md#更新する場合)で本番のプログラム一式をv1.10.0にし、起動ログを確認します。
+本番が古い版の場合だけ、[Synologyの更新手順](synology.md#更新する場合)でプログラム一式をv1.10.0にします。
+すでにv1.10.0の通常導入を終えている場合は、再作成せず起動ログを確認します。
 configとstateは保持します。v1.10.0ではlibの配置とComposeの変更があるため、更新手順に従って再作成します。
 
 ```sh
@@ -40,6 +62,11 @@ NASのSSH画面で次を実行します。
 
 ```sh
 ls -l /volume1/docker/mydns-updater/docker-health-recover.sh
+```
+
+**確認：** ファイルが表示されたら次へ進みます。見つからない場合は配置を直します。
+
+```sh
 sudo mkdir -p /volume1/docker/mydns-recovery/state
 sudo chown root:root /volume1/docker/mydns-recovery /volume1/docker/mydns-recovery/state
 sudo chmod 700 /volume1/docker/mydns-recovery /volume1/docker/mydns-recovery/state
@@ -115,7 +142,7 @@ sudo stat -c '監視記録の更新時刻: %y' /volume1/docker/mydns-recovery/st
 表示できたら1〜2分待ち、同じコマンドをもう一度実行します。
 
 **確認：** 更新時刻が進んでいれば、監視記録は更新されています。
-さらに次の2つを確認します。状態表示だけでは、定期実行が動いた証拠にはなりません。
+さらに次の3つを確認します。状態表示だけでは、定期実行が動いた証拠にはなりません。
 
 ```sh
 sudo /bin/sh /volume1/docker/mydns-recovery/run.sh --status
@@ -264,6 +291,9 @@ sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}}' mydns-
 BLOCKEDの場合も、そのまま履歴を消して試験を繰り返しません。
 
 </details>
+
+試験と記録が終わったら、[Synology導入手順の最後の選択](synology.md#6-詳しい確認または通常運用へ進む)で、継続運用か停止・切り戻しを選びます。
+正常に終わった試験の後に、下の履歴リセットを行う必要はありません。
 
 ## 必要な場合だけ：自動復帰を無効にする・制限を解除する
 

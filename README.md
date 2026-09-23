@@ -6,7 +6,7 @@ MyDNS.JPへIPv4アドレスを自動通知する軽量な常駐ツールです�
 
 このREADMEには、各環境で共通する設定と動作をまとめています。導入・更新・自動復帰の操作は、次の入口から自分の環境を選んでください。
 
-Dockerを使わずに動かす [Linux直接実行版](docs/linux.md) も用意しています。Ubuntu Server 24.04 LTS（DS1522+上のx86-64 VM）で動作確認済みです。ARM機や他のLinux環境は未検証です。
+Dockerを使わずに動かす [Linux直接実行版](docs/linux.md) も用意しています。旧版はUbuntu Server 24.04 LTS（DS1522+上のx86-64 VM）で動作確認済みです。v1.10.0の確認状況は[テスト記録](docs/testing.md#v1100の確認範囲)に記載しています。ARM機や他のLinux環境は未検証です。
 
 このブランチはv1.10.0の開発版です。Releaseは未公開です。公開済みの版は [公開済みリリース](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
 
@@ -21,7 +21,8 @@ Dockerを使わずに動かす [Linux直接実行版](docs/linux.md) も用意�
 | Linuxで直接実行（Dockerなし） | [Linuxでの導入・運用](docs/linux.md) |
 
 NAS上のVMでUbuntu＋Dockerを使う場合は「通常のDocker」です。NAS本体のContainer Managerとは操作場所が違います。
-各手順に、ファイルを置く場所、起動方法、確認する表示を記載しています。
+各手順に、配置図と「準備 → 模擬テスト → 実アカウントでの導入・確認 → 必要な監視機能」の順番を記載しています。
+模擬テストは通常導入では任意、開発版の検証では実施します。詳しい動作確認は基本の導入後に進めます。
 
 ## 事前準備
 

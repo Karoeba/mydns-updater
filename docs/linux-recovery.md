@@ -4,6 +4,11 @@
 先に [Linux導入手順](linux.md) で通常の更新とヘルスチェックが動くことを確認してください。
 
 DockerとSynology Container Managerの設定は、この手順では変更しません。
+定期監視だけの機能は事前導入不要です。自動復帰自身が進行を確認します。
+
+**進む順番：** 導入済み確認 → 1 ファイル確認 → 2 配置 → 3 定期実行確認 → 4 自動復帰の試験。
+[Linuxの動作確認](linux-testing.md)から来た場合は、4-4まで終えたら同資料の手順4へ戻ります。
+通常運用の導入だけなら、手順3で登録を確認した後、手順4の試験を行うか選びます。
 
 ## どんなときに再起動するか
 
@@ -66,6 +71,24 @@ grep '^VERSION=' update.sh
 5つのファイルとlib内の6ファイルが表示され、バージョンが `1.10.0` であることを確認します。
 `No such file or directory` が出た場合は、今いるフォルダーや取得した版を確認してください。
 
+## 追加するファイルの配置
+
+```text
+/
+├── usr/local/lib/mydns-updater/
+│   ├── update.sh                               ← 導入済みの起動プログラム
+│   ├── lib/                                    ← 導入済みの共通処理
+│   └── health-recover.sh                       ← 今回追加
+├── etc/systemd/system/
+│   ├── mydns-updater.service                   ← 更新処理の起動設定
+│   ├── mydns-updater-recovery.service          ← 復帰判断を1回行う設定
+│   └── mydns-updater-recovery.timer            ← 定期的に呼び出す設定
+└── var/lib/mydns-updater-recovery/
+    └── status                                 ← 復帰履歴。自動生成
+```
+
+通知成功を保存する/var/lib/mydns-updater/state.confとは別です。
+
 ## 2. 停止してファイルを配置する
 
 独自の配置先や実行ユーザーを使っている場合は、サービス設定をそのまま上書きせず、既存の指定を残して変更点を反映してください。
@@ -112,7 +135,9 @@ sudo journalctl -u mydns-updater-recovery.service --no-pager -n 20
 ```
 
 `enabled` と表示され、タイマー一覧に次回実行時刻が出れば設定できています。
-初回実行は約30秒後です。サービスのログは、初回実行後に再確認してください。
+初回実行は約30秒後です。No entriesなら30〜60秒程度待ち、ログ確認を再実行します。
+サービスの実行記録が繰り返され、エラーがないことも確認します。
+`Deactivated successfully` は1回の確認の正常終了であり、タイマーの停止ではありません。
 
 自動復帰サービスは確認のたびに終了するため、`inactive (dead)` だけで異常とは限りません。
 正常が続いている間は、独自のログを出しません。
@@ -188,7 +213,9 @@ sudo systemctl is-active mydns-updater
 sudo systemctl is-active mydns-updater-recovery.timer
 ```
 
-両方が引き続き `inactive` なら、動作確認は完了です。続け方をどちらか選びます。
+両方が引き続き `inactive` なら、この自動復帰試験は完了です。
+**Linuxの動作確認から来た場合は、停止した状態のまま[手順4](linux-testing.md#4-os再起動前に記録を保存する)へ戻ります。まだ元のDockerへ戻しません。**
+自動復帰だけを試していた場合は、続け方をどちらか選びます。
 
 - **NASなどの運用に戻す：** Linux側は停止したまま、元の環境を起動します。
 - **Linux側で運用を続ける：** 同じアカウントの別環境を停止したまま、`sudo systemctl start mydns-updater` を実行します。
