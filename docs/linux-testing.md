@@ -311,7 +311,7 @@ sudo systemctl disable --now mydns-updater-healthcheck.timer
 sudo systemctl stop mydns-updater-healthcheck.service
 ```
 
-最後は全員が実行します。
+試験終了を選んだ場合は、最後に次を実行します。
 
 ```sh
 sudo systemctl disable --now mydns-updater
