@@ -325,6 +325,10 @@ before.txt、after.txt、recovery.log、updater.log、health-final.json、docker
 IPと表示用ドメインを含むため、共有時には内容を確認します。設定ファイルは試験記録に含めません。
 記録の削除は運用に影響しませんが、運用中のconfig・state・監視履歴とは取り違えないでください。
 
+保存先の `~/mydns-recovery-results` はSSHにログインしたユーザーのホーム内です。
+同じユーザーでDSMへログインしていれば、通常はFile Stationの `home → mydns-recovery-results` で見つかります。
+docker共有フォルダー内ではありません。表示されない場合の確認方法も、次のリンク先に記載しています。
+
 Windowsへ持ち帰る場合だけ、[記録のコピー手順](docker-recovery.md#必要な場合だけ記録をwindowsへコピーする)を使います。
 
 **実働環境での最終確認はここで完了です。** 回数上限まで繰り返す必要はありません。

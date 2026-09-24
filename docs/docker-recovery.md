@@ -184,6 +184,48 @@ health-final.jsonという名前でも、中のStatusがunhealthyなら、保存
 
 ## 必要な場合だけ：記録をWindowsへコピーする
 
+### SynologyのFile Stationで探す場合
+
+`~/mydns-recovery-results` の `~` は、**SSHにログインしたユーザーのホームフォルダー**です。
+作業中のdockerフォルダーや、PCのホームを意味するものではありません。
+
+ユーザーホームサービスが有効で、SSHとDSMに同じユーザーでログインしている場合は、File Stationで次を開きます。
+
+```text
+home/
+└── mydns-recovery-results/
+    ├── before.txt
+    ├── after.txt
+    ├── recovery.log
+    ├── updater.log
+    ├── health-final.json
+    └── docker-version.txt
+```
+
+管理者としてhomesが見える場合は、`homes → SSHにログインしたユーザー名 → mydns-recovery-results` からも探せます。
+homeは自分用、homesは各ユーザーのホームをまとめた場所です。
+[Synologyのユーザーホームの説明](https://kb.synology.com/en-global/DSM/tutorial/user_enable_home_service)
+
+1. File Stationで上記のフォルダーを開きます。
+2. 中のファイルの更新日時が今回の試験時刻と合うことを確認します。
+3. 必要なファイルを選択して右クリックし、「ダウンロード」でPCへ保存します。
+
+**見つからない場合だけ：** 試験したNASのSSH画面で次を実行します。
+
+```sh
+whoami
+printf '記録の保存先: %s/mydns-recovery-results\n' "$HOME"
+ls -lh "$HOME/mydns-recovery-results"
+```
+
+最初にSSHのユーザー名、次に保存先とファイル一覧が表示されます。
+DSMに別のユーザーでログインしていると、homeからは別の場所が見えます。
+rootへ切り替えた端末で保存した場合などは、File Stationから見えない場所になっていることもあります。
+homeが表示されない場合はユーザーホームサービスや権限も関係します。記録を取るためだけに設定や権限を変更する必要はありません。
+下のコピーコマンドで取得できるなら、その方法で構いません。
+
+### Windowsのコマンドでコピーする場合
+
 以下は、実働コンテナの試験記録をフォルダーごとコピーする手順です。
 組み合わせ試験のrecovery-integration.logをSynologyから取得する場合は、[File Stationでダウンロード](#synologyで記録をpcへ保存する場合)できます。
 
