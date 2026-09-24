@@ -510,10 +510,11 @@ MYDNS_CONFIG_DIR=/etc/mydns-updater MYDNS_STATE_DIR=/var/lib/mydns-updater sh /u
 
 ## 更新方法
 
-### v1.9.0からv1.10.0へ更新する
+### v1.9.0以降からv1.10.1へ更新する
 
-設定項目・状態ファイル・サービス定義は変更していません。今回はupdate.shとlibを一緒に配置します。
-設定と状態をバックアップし、取得したv1.10.0のフォルダーで次を実行します。
+状態ファイル・サービス定義は維持します。通知間隔の上限とcurl設定の扱いは[更新時の変更点](../README.md#v1100からv1101への更新)を先に確認してください。
+update.shとlibに加え、Linux自動復帰用のhealth-recover.shも同じ版で配置します。配置だけで自動復帰が有効になることはありません。
+設定と状態をバックアップし、取得したv1.10.1のフォルダーで次を実行します。
 
 ```sh
 pwd
@@ -521,7 +522,7 @@ ls update.sh lib/*.sh
 grep '^VERSION=' update.sh
 ```
 
-update.shとlib内の6ファイルが表示され、版が1.10.0なら続けます。
+update.shとlib内の6ファイルが表示され、版が1.10.1なら続けます。
 
 **自動復帰を設定済みの場合だけ：** 次で一時的に止め、実行中の確認処理の終了を待ちます。
 
@@ -537,6 +538,7 @@ sudo systemctl stop mydns-updater
 sudo install -o root -g root -m 644 update.sh /usr/local/lib/mydns-updater/update.sh
 sudo install -d -o root -g root -m 755 /usr/local/lib/mydns-updater/lib
 sudo install -o root -g root -m 644 lib/*.sh /usr/local/lib/mydns-updater/lib/
+sudo install -o root -g root -m 644 health-recover.sh /usr/local/lib/mydns-updater/health-recover.sh
 ls -l /usr/local/lib/mydns-updater/update.sh /usr/local/lib/mydns-updater/lib/*.sh
 sudo systemctl start mydns-updater
 sudo systemctl status mydns-updater --no-pager
@@ -544,7 +546,7 @@ sudo journalctl -u mydns-updater -n 30 --no-pager
 sudo -u mydns-updater env MYDNS_HEALTH_FILE=/run/mydns-updater/health sh /usr/local/lib/mydns-updater/update.sh --healthcheck
 ```
 
-7ファイルが配置され、起動ログがv1.10.0、状態が `active (running)`、ヘルスチェックが `HEALTHY` なら成功です。
+7ファイルが配置され、起動ログがv1.10.1、状態が `active (running)`、ヘルスチェックが `HEALTHY` なら成功です。
 起動直後で判定待ちの場合は、少し待って最後の確認コマンドだけを再実行します。
 stateを引き継ぐため、IP不変・通知期限前は通知を見送ります。
 

@@ -236,6 +236,13 @@ LAST_UPDATE=1789200000
 以下は、旧版から引き継ぐ際の変更点です。複数の版をまたぐ場合は、途中の変更点も確認してください。
 
 
+### v1.10.0からv1.10.1への更新
+
+同じ版のupdate.shとlib全体を配置します。Linuxの自動復帰を利用している場合はhealth-recover.shも更新します。
+設定・state.conf・復帰履歴statusは引き継ぎ、初期化しません。新しいdiagnosticは自動生成されます。
+FORCE_UPDATE_INTERVALが259200秒を超える既存設定と、.curlrcへの依存は、上の設定・通信応答の説明に従って見直してください。
+検証中の版はまだmainにありません。試す場合はreview-fixes-v1.10.1ブランチを取得してください。通常導入のmain取得手順とは区別します。
+
 ### v1.9.0からの更新
 
 処理を機能ごとのファイルへ分割しました。設定項目・通知条件・状態ファイルの形式は同じです。
@@ -330,10 +337,3 @@ Docker is a trademark or registered trademark of Docker, Inc. in the United Stat
 All other product names, trademarks, and registered trademarks are the property of their respective owners.
 
 Use at your own risk.
-
-## v1.10.1へ更新する場合
-
-同じ版のupdate.shとlib全体を配置します。Linuxの自動復帰を利用している場合はhealth-recover.shも更新します。
-設定・state.conf・復帰履歴statusは引き継ぎ、初期化しません。新しいdiagnosticは自動生成されます。
-FORCE_UPDATE_INTERVALが259200秒を超える既存設定と、.curlrcへの依存は、上の設定・通信応答の説明に従って見直してください。
-検証中の版はまだmainにありません。試す場合はreview-fixes-v1.10.1ブランチを取得してください。通常導入のmain取得手順とは区別します。
