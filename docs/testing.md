@@ -27,7 +27,7 @@ PR作成・更新時とmainへのpush時に、次のジョブを実行します�
 | --- | --- | --- |
 | Alpine mock tests | Docker（Alpine） | 既存処理37項目、診断20項目、設定分割10項目、配置先指定8項目、ヘルスチェック11項目、Linux用ヘルスチェック7項目。加えてLinuxのDockerホスト側から設定の置き換え4項目・健康状態の遷移3項目 |
 | Documentation shell syntax | Ubuntu 24.04 | READMEとdocs内のsh／bashコード枠を構文検査。記載したコマンドは実行しません |
-| Linux direct execution | Ubuntu 24.04（Docker不使用） | 配置先指定8項目・ヘルスチェック7項目・監視判定13項目、自動復帰判定16項目、systemdの定期実行5項目・自動復帰5項目とサービス定義の検査 |
+| Linux direct execution | Ubuntu 24.04（Docker不使用） | 配置先指定8項目・ヘルスチェック7項目・監視判定13項目、自動復帰判定18項目、systemdの定期実行5項目・自動復帰5項目とサービス定義の検査 |
 
 v1.10.0では、Docker（Alpineのsh）とLinux直接実行（Ubuntuのsh）の両方で、分割したプログラムの配置試験も行います。
 空白を含む配置先・別の作業フォルダーからの起動、6ファイルのそれぞれが欠けた場合の停止を確認します。
@@ -38,6 +38,9 @@ v1.10.0では、Docker（Alpineのsh）とLinux直接実行（Ubuntuのsh）の�
 結果はPRのChecksまたはActionsの各ジョブのログで確認できます。Docker側のレポートは成果物 `test-reports` として14日間保存されます。コンテナ起動前の失敗ではレポートがない場合があります。
 
 文書の構文検査では、shのコード枠をUbuntuのshとbash、bashのコード枠をbashの `-n` で検査します。引用符やコマンド構文の誤りを検出するもので、インストールの成功、パス・権限の妥当性、手順を通した動作を保証するものではありません。実行場所や操作順は文書の点検と導入先での確認で補います。
+
+v1.10.1ではUbuntu 22.04・24.04とAlpineで、実curlとローカルHTTPサーバーを使い、既知長・長さ不明・chunkedの過大応答、正常HTML、代替IP取得先、通知の拒否と回復、.curlrcの無効化を検査します。実MyDNS.JPや実アカウントには接続しません。
+模擬時計で通知間隔の境界と長い確認周期・失敗後の再試行も確認します。Linux自動復帰は監視不能の警告・抑制・回復を追加検査します。
 
 ### 結果バッジ
 
@@ -179,7 +182,7 @@ test_result=$?
 printf '模擬テストの終了コード: %s\n' "$test_result"
 ```
 
-`ALL PROGRAM LAYOUT TESTS PASSED`、`ALL LINUX TESTS PASSED (8 checks)` と `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`、`ALL MONITOR TESTS PASSED (13 checks)` に加え、`ALL RECOVERY TESTS PASSED (16 checks)` がすべて出て、終了コード0なら成功です。一時ディレクトリ内で模擬通信を使用し、実アカウントや既存設定には触れません。
+`ALL PROGRAM LAYOUT TESTS PASSED`、`ALL LINUX TESTS PASSED (8 checks)` と `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`、`ALL MONITOR TESTS PASSED (13 checks)` に加え、`ALL RECOVERY TESTS PASSED (18 checks)` がすべて出て、終了コード0なら成功です。一時ディレクトリ内で模擬通信を使用し、実アカウントや既存設定には触れません。
 
 必要なソフトの準備は [Linux導入手順](linux.md) を参照してください。監視テストにはutil-linuxのflockとcoreutilsのtimeoutを使います。
 

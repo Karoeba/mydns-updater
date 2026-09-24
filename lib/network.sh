@@ -9,8 +9,21 @@ request() {
     HTTP_CODE=""
     CURL_CODE=0
     : > "$WORK_DIR/response" || fatal "[INTERNAL] RESPONSE_FILE_FAILED"
-    HTTP_CODE="$(curl -4 -fsS --connect-timeout 10 --max-time "$REQUEST_TIMEOUT" \
-        --output "$WORK_DIR/response" --write-out '%{http_code}' "$@" 2>/dev/null)" || CURL_CODE=$?
+    # max-filesize alone does not bound unknown-length bodies before curl 8.4.
+    # Limit regular-file writes in the curl child as a second, kernel-enforced bound.
+    # Linux sh implementations use 512- or 1024-byte blocks: at most 128 KiB.
+    HTTP_CODE="$(
+        ulimit -c 0 || exit 27
+        ulimit -f 128 || exit 27
+        exec curl -q -4 -fsS --max-filesize 65536 --connect-timeout 10 --max-time "$REQUEST_TIMEOUT" \
+            --output "$WORK_DIR/response" --write-out '%{http_code}' "$@"
+    )" 2>/dev/null || CURL_CODE=$?
+    RESPONSE_BYTES="$(wc -c < "$WORK_DIR/response")" || fatal "[INTERNAL] RESPONSE_FILE_FAILED"
+    # Reject a truncated body, including one containing the success phrase.
+    if [ "$RESPONSE_BYTES" -gt 65536 ] ||
+       { [ "$RESPONSE_BYTES" -ge 65536 ] && [ "$CURL_CODE" -ne 0 ]; }; then
+        CURL_CODE=63
+    fi
 }
 
 classify_response() {
@@ -27,6 +40,7 @@ classify_response() {
         51|58|60|77) ERROR_CODE=CERTIFICATE_ERROR; ERROR_MODE=error; ERROR_HINT="check clock, certificates and endpoint" ;;
         23|26|27) ERROR_CODE=LOCAL_RESOURCE_ERROR; ERROR_MODE=error; ERROR_HINT="check temporary storage and memory" ;;
         52) ERROR_CODE=EMPTY_RESPONSE ;;
+        63) ERROR_CODE=RESPONSE_TOO_LARGE; ERROR_HINT="response exceeds limit; check service" ;;
         55|56|18) ERROR_CODE=TRANSFER_FAILED ;;
         *) ERROR_CODE=CURL_ERROR ;;
     esac
@@ -78,6 +92,8 @@ get_current_ipv4() {
         SERVICE_TARGET="IP_CHECK_URL$SERVICE"
         track_target "$SERVICE_KEY" "$URL" "$SERVICE_TARGET"
         request 20 "$URL"
+        # IP endpoints need only a short address, not a full HTML document.
+        [ "$RESPONSE_BYTES" -le 256 ] || CURL_CODE=63
         if classify_response; then
             CANDIDATE="$(sed 's/^[[:space:]]*//;s/[[:space:]]*$//' "$WORK_DIR/response")"
             if valid_ipv4 "$CANDIDATE"; then

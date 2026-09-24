@@ -15,7 +15,7 @@ Dockerを使わず、update.shとlibをLinux上で動かします。
 | 通常導入する | 1 準備 → 3〜5で導入と通知確認 → 6で継続運用。2の模擬テストは任意 |
 | 導入済みの版を更新する | [更新方法](#更新方法)へ。初回用の設定コピーは行わない |
 
-現在はv1.10.0の開発版です。下の取得コマンドも試験用ブランチを指定しています。
+下の取得コマンドはmainを指定しています。GitHub Releaseとしての公開状況とは別に、mainのコード一式を取得します。
 
 - **模擬テスト**：実アカウントを使わず、用意した通信結果でプログラムを検査します。
 - **実アカウントでの確認**：実際にMyDNS.JPへ通知し、導入先での動作を確認します。
@@ -113,7 +113,7 @@ grep '^VERSION=' update.sh
 git rev-parse HEAD
 ```
 
-**確認：** update.sh、lib内の6ファイル、サービス設定が表示され、版が `1.10.0` であることを確認します。
+**確認：** update.sh、lib内の6ファイル、サービス設定が表示され、版が `1.10.1` であることを確認します。
 最後の長い文字列は試したコードの識別番号です。控えておきます。
 ZIPで取得した場合はgitのコマンドを省略し、ZIP名と取得元を控えます。
 
@@ -161,7 +161,7 @@ ALL PROGRAM LAYOUT TESTS PASSED
 ALL LINUX TESTS PASSED (8 checks)
 ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)
 ALL MONITOR TESTS PASSED (13 checks)
-ALL RECOVERY TESTS PASSED (16 checks)
+ALL RECOVERY TESTS PASSED (18 checks)
 模擬テストの終了コード: 0
 ```
 
@@ -256,7 +256,7 @@ sudo ls -l /var/lib/mydns-updater/state.conf
 
 **成功：** 次の3点を確認します。
 
-- 状態が `active (running)`、起動ログが `v1.10.0`。
+- 状態が `active (running)`、起動ログが `v1.10.1`。
 - 設定した各アカウントに `MyDNS update: OK` がある。
 - state.confが作成されている。
 

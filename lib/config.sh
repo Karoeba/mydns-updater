@@ -142,7 +142,7 @@ load_config() {
     fi
     read_interval CHECK_INTERVAL 60 86400 300
     CHECK_INTERVAL="$VALUE"
-    read_interval FORCE_UPDATE_INTERVAL 3600 604800 86400
+    read_interval FORCE_UPDATE_INTERVAL 3600 259200 86400
     FORCE_UPDATE_INTERVAL="$VALUE"
     if [ "$FORCE_UPDATE_INTERVAL" -lt "$CHECK_INTERVAL" ]; then
         config_failure order INTERVAL_ORDER warning "FORCE_UPDATE_INTERVAL < CHECK_INTERVAL: using 86400s"
