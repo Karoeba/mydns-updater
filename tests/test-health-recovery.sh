@@ -72,6 +72,7 @@ echo ok > "$TASK/mode"
 run; grep -q RECOVERED "$TASK/log"
 run; [ ! -s "$TASK/log" ]
 pass 'healthy confirmation after request logs recovery once'
+rm -f "$TASK/state/diagnostic" # Upgrade from old nine-field status without diagnostics.
 echo bad > "$TASK/mode"
 echo 10599 > "$TASK/now"
 run; run; run; attempts 1

@@ -32,6 +32,10 @@ class Handler(http.server.BaseHTTPRequestHandler):
             body = b"<html>" + b" " * 8192 + b"Login and IP address notify OK.</html>"
         elif self.path == "/ip-long":
             body = b" " * 257 + b"203.0.113.9"
+        elif self.path == "/boundary":
+            body = b"x" * 65536
+        elif self.path == "/over-boundary":
+            body = b"x" * 65537
         else:
             body = b"Login and IP address notify OK." + SECRET + b"x" * (8 * 1024 * 1024)
         self.send_response(200)
@@ -67,8 +71,8 @@ set -eu
 for module in diagnostics health config network state runtime; do . "$TEST_ROOT/lib/$module.sh"; done
 updater_defaults
 WORK_DIR="$TEST_WORK"
-mkdir -p "$WORK_DIR/state"
-STATE_DIR="$WORK_DIR/state"; STATE_FILE="$STATE_DIR/state.conf"
+mkdir -p "$WORK_DIR/saved-state"
+STATE_DIR="$WORK_DIR/saved-state"; STATE_FILE="$STATE_DIR/state.conf"
 '''
 
         def run(script):
@@ -76,14 +80,18 @@ STATE_DIR="$WORK_DIR/state"; STATE_FILE="$STATE_DIR/state.conf"
             assert SECRET.decode() not in result.stdout + result.stderr, "response body leaked"
             assert result.returncode == 0, result.stdout + result.stderr
 
-        for endpoint in ("known", "unknown", "chunked"):
+        for endpoint in ("known", "unknown", "chunked", "over-boundary"):
             run(f'''
 request 5 "$MYDNS_TEST_URL/{endpoint}"
 if classify_response; then exit 1; fi
 [ "$ERROR_CODE" = RESPONSE_TOO_LARGE ]
 [ "$(wc -c < "$WORK_DIR/response")" -le 131072 ]
 ''')
+            print(f"PASS: {endpoint} oversized response rejected within disk bound")
         run('''
+request 5 "$MYDNS_TEST_URL/boundary"
+classify_response
+[ "$RESPONSE_BYTES" -eq 65536 ]
 request 5 "$MYDNS_TEST_URL/html"
 classify_response
 grep -Fq 'Login and IP address notify OK.' "$WORK_DIR/response"
