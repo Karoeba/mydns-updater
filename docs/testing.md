@@ -95,20 +95,63 @@ printf '追加テストの終了コード: %s\n' "$test_result"
 
 ### Synology Container Manager
 
-File Stationで、取得したmydns-updater内のtestsにreportsフォルダーを作ります。
-update.shとlibはtestsの1つ上に置きます。
+ここでは、模擬テスト用のプロジェクト名を **`mydns-updater-test`** に統一します。
+本番用の `mydns-updater` とは別に作ります。実アカウントの設定は不要です。
+
+#### 1. PCでZIPを取得し、NASへ配置する
+
+1. [v1.10.0の試験用ZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.10.0-modular-core.zip)をPCへダウンロードして展開します。
+2. 展開したフォルダーを開き、update.shがある階層まで進みます。update.sh・Dockerfile・lib・testsなどが入っています。
+3. File Stationで共有フォルダー `docker` を開き、その中に `mydns-recovery-check` フォルダーを作ります。
+4. 展開したフォルダーの**中身をすべて**、`docker/mydns-recovery-check` へアップロードします。
+5. NAS上の `mydns-recovery-check/tests` を開き、`reports` フォルダーがなければ作ります。
+
+この試験用一式は、後で自動復帰の模擬試験にも使います。
+同じ版をこの場所へ配置済みなら、再アップロードせず次の配置を確認します。
+以下は一部を抜粋した図です。図にないファイルも含め、一式を配置してください。
 
 ```text
-docker/mydns-updater/
-├── update.sh
-├── lib/
-└── tests/
-    ├── compose.yaml
-    └── reports/
+docker/
+├── mydns-updater/                 ← 本番用。今回のアップロード先ではない
+└── mydns-recovery-check/          ← ZIPの中身を置く場所
+    ├── Dockerfile
+    ├── compose.yaml              ← 今回のプロジェクトでは選ばない
+    ├── update.sh
+    ├── lib/                      ← 6つの.shファイル
+    ├── docker-health-recover.sh
+    └── tests/                    ← 今回のプロジェクトのパス
+        ├── compose.yaml          ← 今回使うYAML
+        ├── entrypoint.sh
+        ├── その他のテスト用ファイル
+        └── reports/              ← 結果の保存先
 ```
 
-Container Managerで、本番と別名のテスト用プロジェクトを作成します。
-パスは `/docker/mydns-updater/tests`、YAMLはその中のcompose.yamlを指定して構築・実行します。
+**配置の確認：** mydns-recovery-checkを開くと、すぐにupdate.shとtestsが見える状態です。
+その間にZIPの展開フォルダーがもう1段入っていたら、中身を1段上へ移します。
+
+#### 2. Container Managerでテスト用プロジェクトを作る
+
+1. Container Manager →「プロジェクト」→「作成」を開きます。
+2. 次の値を指定します。
+
+| 項目 | 指定する内容 |
+| --- | --- |
+| プロジェクト名 | `mydns-updater-test` |
+| パス | `/docker/mydns-recovery-check/tests` |
+| 使用するYAML | そのフォルダー内の `compose.yaml` |
+
+3. 配置済みのYAMLを使い、画面の案内に従って構築・開始します。
+4. 作成した `mydns-updater-test` のコンテナのログを開き、テストが終了するまで待ちます。
+
+同名のテスト用プロジェクトがすでにある場合は、そのパスが上記と一致するか確認します。
+一致する場合は新規作成せず、そのテスト用プロジェクトで構築・開始して今回の結果を確認します。
+異なる場合は既存プロジェクトを上書きせず、今回の名前を `mydns-updater-test-110` にして作成します。
+コンテナ名は自動で付くため、手入力する必要はありません。
+
+#### 3. 結果を確認して導入手順へ戻る
+
+File Stationで `docker/mydns-recovery-check/tests/reports` を開きます。
+以下のresult.txtとtest.logは、このフォルダー内のファイルです。
 
 **成功：** テスト用コンテナが終了コード0で停止し、reports/result.txtにALL TESTS PASSED、
 今回のtest.logに上記7種類の成功表示があれば成功です。更新日時も今回の時刻になっていることを確認します。
@@ -118,6 +161,9 @@ Container Managerで、本番と別名のテスト用プロジェクトを作成
 コンテナのログとreports/test.logを確認します。古い成功記録だけで判断しません。
 
 成功時の表示は上記のDockerテストと同じです。ホスト側の4＋3項目はこの操作では実行されません。設定の上書き反映とContainer Managerでの健康状態の変化は、別途確認します。
+
+成功したら、[Synology導入手順の「3. 実アカウントの設定を用意する」](synology.md#3-実アカウントの設定を用意する)へ戻ります。
+既存環境を更新するために試した場合は、[更新手順](synology.md#更新する場合)へ進みます。
 
 ### Linux直接実行
 

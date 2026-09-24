@@ -40,8 +40,7 @@ docker/mydns-updater/
 │   └── accounts.conf
 ├── state/               # state.confは通知成功後に自動生成
 └── tests/
-    ├── compose.yaml     # 模擬テスト専用
-    └── reports/         # 模擬テスト結果
+    └── compose.yaml     # 同梱のテスト用。手順2では別の試験用フォルダーを使用
 ```
 
 **確認：** File Stationのmydns-updater直下にDockerfile・compose.yaml・update.shがあります。
@@ -62,7 +61,14 @@ File Stationでは共有フォルダーdockerとして見えますが、SSHで�
 
 **開発版の検証では実施します。通常導入だけなら手順3へ進めます。**
 [Container Managerでの模擬テスト](testing.md#synology-container-manager)を実行します。
-テスト用プロジェクトはtestsを指定します。本番用プロジェクトは、この後で1つ上のmydns-updaterを指定します。
+テスト用は別フォルダーに配置し、プロジェクト名も分けます。リンク先にZIPの配置と作成操作を記載しています。
+
+| 用途 | プロジェクト名 | プロジェクトのパス |
+| --- | --- | --- |
+| 模擬テスト | mydns-updater-test | /docker/mydns-recovery-check/tests |
+| 通常運用 | mydns-updater | /docker/mydns-updater |
+
+テスト用は実アカウントを使いません。本番用プロジェクトは、この後の手順4で作ります。
 
 終了コード0とALL TESTS PASSEDを確認したら、このページの手順3へ戻ります。
 模擬テストは終了するプログラムなので、最後にコンテナが停止するのは正常です。

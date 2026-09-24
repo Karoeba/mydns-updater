@@ -5,6 +5,9 @@
 NAS本体のSSHとDSMを使います。以下ではボリュームをvolume1、コンテナ名をmydns-updaterとしています。
 配置が異なる場合は実際の場所に合わせます。Ubuntu VMの端末では行いません。
 
+File Stationで試験用ファイルをアップロードし、SSHで監視用ファイルの配置・権限設定と試験を行います。
+最後にDSMのタスクスケジューラへ登録します。設定後はSSHを切断しても監視・自動復帰は続きます。
+
 **進む順番：** 通常の通知・正常表示を確認 → 試験専用コンテナで確認 → 1〜3 配置とDSM登録 → 4 定期実行 → 5 自動復帰の試験。
 本番の設定・通知確認が済んでいれば、初回導入からやり直しません。
 模擬試験と、本番の定期実行・自動復帰は別の確認です。
@@ -28,8 +31,50 @@ mydns-updater/stateの通知成功記録を、mydns-recovery/stateへコピー�
 
 ## 始める前に
 
-今回の試験ではv1.10.0のファイルを用意します。[試験用ブランチのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.10.0-modular-core.zip)を取得した場合は展開します。
-初回の導入確認には、本番とは別の `/volume1/docker/mydns-recovery-check` に中身を置きます。
+### PCで入手し、File Stationで置く
+
+1. [v1.10.0の試験用ZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.10.0-modular-core.zip)をPCへダウンロードし、展開します。
+2. 展開したフォルダーを開き、update.shがある階層まで進みます。
+3. File Stationで共有フォルダー `docker` の中に `mydns-recovery-check` を作ります。
+4. 展開フォルダーの**中身をすべて**、そこへアップロードします。
+
+[Container Managerの模擬テスト](testing.md#synology-container-manager)で同じ版を配置済みなら、このアップロードは不要です。
+その試験と今回の自動復帰試験は内容が異なりますが、ファイル一式は共用できます。
+
+```text
+PC：ZIPを展開したフォルダー
+展開した一式（update.shがある階層）/
+    中身をすべてアップロード
+                ↓
+NAS：File Stationの docker/mydns-recovery-check/
+├── update.sh
+├── lib/
+│   ├── config.sh
+│   ├── diagnostics.sh
+│   ├── health.sh
+│   ├── network.sh
+│   ├── runtime.sh
+│   └── state.sh
+├── docker-health-recover.sh
+├── tests/
+│   └── test-docker-recovery-integration.sh
+└── その他の同梱ファイル
+```
+
+図は一部の抜粋です。tests内のほかのファイルも必要なので、一式をアップロードします。
+File Stationでmydns-recovery-checkを開き、すぐにupdate.sh・lib・testsが見えれば正しい配置です。
+ZIPの展開フォルダー自体を入れて、1段深くしないでください。
+
+| File Stationで見える場所 | SSHで指定する同じ場所 |
+| --- | --- |
+| docker/mydns-recovery-check | /volume1/docker/mydns-recovery-check |
+| docker/mydns-updater | /volume1/docker/mydns-updater |
+| docker/mydns-recovery | /volume1/docker/mydns-recovery |
+
+mydns-updaterは通常運用用、mydns-recovery-checkは試験用です。
+mydns-recoveryは、この後の手順1で作る監視用フォルダーなので、今はなくても構いません。
+
+### NASへSSH接続して配置と模擬試験を確認する
 
 NASのSSHで次を実行し、作業場所を確認します。
 
@@ -40,7 +85,12 @@ ls -l update.sh lib/*.sh docker-health-recover.sh tests/test-docker-recovery-int
 ```
 
 3ファイルとlib内の6ファイルが表示されたら、[試験専用コンテナでの確認](docker-recovery.md#本番導入前に組み合わせを試す)を行います。
-この確認を同じ版ですでに済ませた場合は繰り返さず、次へ進みます。
+この自動復帰の組み合わせ試験を同じ版・同じNASですでに済ませた場合は繰り返さず、次へ進みます。
+Container Managerでの模擬テストだけを終えた場合は、ここで組み合わせ試験も行います。
+リンク先で成功表示と終了コード0を確認したら、このページへ戻ります。
+試験用コンテナはコマンドが自動で作成・削除するため、Container Managerでプロジェクトを作る操作はありません。
+
+### 通常運用のコンテナを確認する
 
 本番が古い版の場合だけ、[Synologyの更新手順](synology.md#更新する場合)でプログラム一式をv1.10.0にします。
 すでにv1.10.0の通常導入を終えている場合は、再作成せず起動ログを確認します。
@@ -55,13 +105,20 @@ sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}} {{.Host
 
 ## 1. NASにファイルを配置する
 
-最新版のdocker-health-recover.shを、本番のupdate.shと同じフォルダーへアップロードします。
-ここでは `/volume1/docker/mydns-updater` に置いたものとして説明します。
+ここでは、先ほど試験用フォルダーへ置いた **docker-health-recover.shだけ**を監視用フォルダーへコピーします。
+入手し直したり、本番用フォルダーへ一度置いたりする必要はありません。
+
+| コピー元（取得したファイル） | コピー先（自動復帰で使用） |
+| --- | --- |
+| /volume1/docker/mydns-recovery-check/docker-health-recover.sh | /volume1/docker/mydns-recovery/docker-health-recover.sh |
+
+下のコマンドがコピー先の作成・コピー・権限設定をまとめて行います。
+File Stationで監視用フォルダーを先に作る必要はありません。
 
 NASのSSH画面で次を実行します。
 
 ```sh
-ls -l /volume1/docker/mydns-updater/docker-health-recover.sh
+ls -l /volume1/docker/mydns-recovery-check/docker-health-recover.sh
 ```
 
 **確認：** ファイルが表示されたら次へ進みます。見つからない場合は配置を直します。
@@ -70,7 +127,7 @@ ls -l /volume1/docker/mydns-updater/docker-health-recover.sh
 sudo mkdir -p /volume1/docker/mydns-recovery/state
 sudo chown root:root /volume1/docker/mydns-recovery /volume1/docker/mydns-recovery/state
 sudo chmod 700 /volume1/docker/mydns-recovery /volume1/docker/mydns-recovery/state
-sudo cp /volume1/docker/mydns-updater/docker-health-recover.sh /volume1/docker/mydns-recovery/docker-health-recover.sh
+sudo cp /volume1/docker/mydns-recovery-check/docker-health-recover.sh /volume1/docker/mydns-recovery/docker-health-recover.sh
 sudo chown root:root /volume1/docker/mydns-recovery/docker-health-recover.sh
 sudo chmod 600 /volume1/docker/mydns-recovery/docker-health-recover.sh
 ```
@@ -80,7 +137,10 @@ mydns-recoveryは、実行用スクリプト・復帰履歴・ログを保存す
 
 ## 2. 呼び出し用ファイルを作る
 
-次のまとまりをそのまま実行します。以後は、このファイルが配置先などを指定するため、毎回入力する必要はありません。
+run.shはZIPからコピーするファイルではなく、下のコマンドで新しく作ります。
+作成先は `/volume1/docker/mydns-recovery/run.sh` です。
+
+NASのSSHで次のまとまりをそのまま実行します。以後は、このファイルが配置先などを指定するため、毎回入力する必要はありません。
 
 ```sh
 sudo tee /volume1/docker/mydns-recovery/run.sh >/dev/null <<'EOF'
