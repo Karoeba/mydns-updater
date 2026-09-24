@@ -5,24 +5,96 @@
 NAS本体のSSHとDSMを使います。以下ではボリュームをvolume1、コンテナ名をmydns-updaterとしています。
 配置が異なる場合は実際の場所に合わせます。Ubuntu VMの端末では行いません。
 
+File Stationで試験用ファイルをアップロードし、SSHで監視用ファイルの配置・権限設定と試験を行います。
+最後にDSMのタスクスケジューラへ登録します。設定後はSSHを切断しても監視・自動復帰は続きます。
+
+**進む順番：** 通常の通知・正常表示を確認 → 試験専用コンテナで確認 → 1〜3 配置とDSM登録 → 4 定期実行 → 5 自動復帰の試験。
+本番の設定・通知確認が済んでいれば、初回導入からやり直しません。
+模擬試験と、本番の定期実行・自動復帰は別の確認です。
+
+## 配置の全体像
+
+```text
+/volume1/docker/
+├── mydns-updater/                   ← 通常運用の一式とconfig・state
+├── mydns-recovery-check/            ← 試験用に取得した一式
+└── mydns-recovery/                  ← この手順で用意する監視用
+    ├── docker-health-recover.sh
+    ├── run.sh                      ← 配置先を指定して呼び出す
+    ├── recovery.log                ← DSMの定期実行で生成
+    └── state/
+        └── status                  ← 復帰履歴。自動生成
+```
+
+試験用フォルダーと監視用フォルダーは用途が違います。
+mydns-updater/stateの通知成功記録を、mydns-recovery/stateへコピーする必要はありません。
+
 ## 始める前に
 
-v1.9.0以降のファイルを用意します。[mainのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/main.zip)を取得した場合は展開します。
-初回の導入確認には、本番とは別の `/volume1/docker/mydns-recovery-check` に中身を置きます。
+### PCで入手し、File Stationで置く
+
+1. [mainのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/main.zip)をPCへダウンロードし、展開します。
+2. 展開したフォルダーを開き、update.shがある階層まで進みます。
+3. File Stationで共有フォルダー `docker` の中に `mydns-recovery-check` を作ります。
+4. 展開フォルダーの**中身をすべて**、そこへアップロードします。
+
+[Container Managerの模擬テスト](testing.md#synology-container-manager)で同じ版を配置済みなら、このアップロードは不要です。
+その試験と今回の自動復帰試験は内容が異なりますが、ファイル一式は共用できます。
+
+```text
+PC：ZIPを展開したフォルダー
+展開した一式（update.shがある階層）/
+    中身をすべてアップロード
+                ↓
+NAS：File Stationの docker/mydns-recovery-check/
+├── update.sh
+├── lib/
+│   ├── config.sh
+│   ├── diagnostics.sh
+│   ├── health.sh
+│   ├── network.sh
+│   ├── runtime.sh
+│   └── state.sh
+├── docker-health-recover.sh
+├── tests/
+│   └── test-docker-recovery-integration.sh
+└── その他の同梱ファイル
+```
+
+図は一部の抜粋です。tests内のほかのファイルも必要なので、一式をアップロードします。
+File Stationでmydns-recovery-checkを開き、すぐにupdate.sh・lib・testsが見えれば正しい配置です。
+ZIPの展開フォルダー自体を入れて、1段深くしないでください。
+
+| File Stationで見える場所 | SSHで指定する同じ場所 |
+| --- | --- |
+| docker/mydns-recovery-check | /volume1/docker/mydns-recovery-check |
+| docker/mydns-updater | /volume1/docker/mydns-updater |
+| docker/mydns-recovery | /volume1/docker/mydns-recovery |
+
+mydns-updaterは通常運用用、mydns-recovery-checkは試験用です。
+mydns-recoveryは、この後の手順1で作る監視用フォルダーなので、今はなくても構いません。
+
+### NASへSSH接続して配置と模擬試験を確認する
 
 NASのSSHで次を実行し、作業場所を確認します。
 
 ```sh
 cd /volume1/docker/mydns-recovery-check
 pwd
-ls -l update.sh docker-health-recover.sh tests/test-docker-recovery-integration.sh
+ls -l update.sh lib/*.sh docker-health-recover.sh tests/test-docker-recovery-integration.sh
 ```
 
-3ファイルが表示されたら、[試験専用コンテナでの確認](docker-recovery.md#本番導入前に組み合わせを試す)を行います。
-この確認を同じ版ですでに済ませた場合は繰り返さず、次へ進みます。
+3ファイルとlib内の6ファイルが表示されたら、[試験専用コンテナでの確認](docker-recovery.md#本番導入前に組み合わせを試す)を行います。
+この自動復帰の組み合わせ試験を同じ版・同じNASですでに済ませた場合は繰り返さず、次へ進みます。
+Container Managerでの模擬テストだけを終えた場合は、ここで組み合わせ試験も行います。
+リンク先で成功表示と終了コード0を確認したら、このページへ戻ります。
+試験用コンテナはコマンドが自動で作成・削除するため、Container Managerでプロジェクトを作る操作はありません。
 
-[Synologyの更新手順](synology.md#更新する場合)で本番のupdate.shをv1.9.0にし、起動ログを確認します。
-configとstateは保持します。v1.8.0からの場合、Composeの変更はありません。
+### 通常運用のコンテナを確認する
+
+本番が古い版の場合だけ、[Synologyの更新手順](synology.md#更新する場合)でプログラム一式をv1.10.0にします。
+すでにv1.10.0の通常導入を終えている場合は、再作成せず起動ログを確認します。
+configとstateは保持します。v1.10.0ではlibの配置とComposeの変更があるため、更新手順に従って再作成します。
 
 ```sh
 sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}} {{.HostConfig.RestartPolicy.Name}}' mydns-updater
@@ -33,17 +105,29 @@ sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}} {{.Host
 
 ## 1. NASにファイルを配置する
 
-最新版のdocker-health-recover.shを、本番のupdate.shと同じフォルダーへアップロードします。
-ここでは `/volume1/docker/mydns-updater` に置いたものとして説明します。
+ここでは、先ほど試験用フォルダーへ置いた **docker-health-recover.shだけ**を監視用フォルダーへコピーします。
+入手し直したり、本番用フォルダーへ一度置いたりする必要はありません。
+
+| コピー元（取得したファイル） | コピー先（自動復帰で使用） |
+| --- | --- |
+| /volume1/docker/mydns-recovery-check/docker-health-recover.sh | /volume1/docker/mydns-recovery/docker-health-recover.sh |
+
+下のコマンドがコピー先の作成・コピー・権限設定をまとめて行います。
+File Stationで監視用フォルダーを先に作る必要はありません。
 
 NASのSSH画面で次を実行します。
 
 ```sh
-ls -l /volume1/docker/mydns-updater/docker-health-recover.sh
+ls -l /volume1/docker/mydns-recovery-check/docker-health-recover.sh
+```
+
+**確認：** ファイルが表示されたら次へ進みます。見つからない場合は配置を直します。
+
+```sh
 sudo mkdir -p /volume1/docker/mydns-recovery/state
 sudo chown root:root /volume1/docker/mydns-recovery /volume1/docker/mydns-recovery/state
 sudo chmod 700 /volume1/docker/mydns-recovery /volume1/docker/mydns-recovery/state
-sudo cp /volume1/docker/mydns-updater/docker-health-recover.sh /volume1/docker/mydns-recovery/docker-health-recover.sh
+sudo cp /volume1/docker/mydns-recovery-check/docker-health-recover.sh /volume1/docker/mydns-recovery/docker-health-recover.sh
 sudo chown root:root /volume1/docker/mydns-recovery/docker-health-recover.sh
 sudo chmod 600 /volume1/docker/mydns-recovery/docker-health-recover.sh
 ```
@@ -53,7 +137,10 @@ mydns-recoveryは、実行用スクリプト・復帰履歴・ログを保存す
 
 ## 2. 呼び出し用ファイルを作る
 
-次のまとまりをそのまま実行します。以後は、このファイルが配置先などを指定するため、毎回入力する必要はありません。
+run.shはZIPからコピーするファイルではなく、下のコマンドで新しく作ります。
+作成先は `/volume1/docker/mydns-recovery/run.sh` です。
+
+NASのSSHで次のまとまりをそのまま実行します。以後は、このファイルが配置先などを指定するため、毎回入力する必要はありません。
 
 ```sh
 sudo tee /volume1/docker/mydns-recovery/run.sh >/dev/null <<'EOF'
@@ -84,7 +171,7 @@ healthyなら通常は何も表示せず、最後の終了コードは0です。
 
 DSMの「コントロールパネル」→「タスクスケジューラ」で、スケジュールされたタスクの「ユーザー定義のスクリプト」を作成します。
 
-- 名前：MyDNS自動復帰
+- タスク名：`MyDNS Auto Recovery`（英数字とスペースで入力）
 - ユーザー：root
 - スケジュール：毎日、1分ごと、終日
 - 有効：オン
@@ -115,7 +202,7 @@ sudo stat -c '監視記録の更新時刻: %y' /volume1/docker/mydns-recovery/st
 表示できたら1〜2分待ち、同じコマンドをもう一度実行します。
 
 **確認：** 更新時刻が進んでいれば、監視記録は更新されています。
-さらに次の2つを確認します。状態表示だけでは、定期実行が動いた証拠にはなりません。
+さらに次の3つを確認します。状態表示だけでは、定期実行が動いた証拠にはなりません。
 
 ```sh
 sudo /bin/sh /volume1/docker/mydns-recovery/run.sh --status
@@ -238,6 +325,10 @@ before.txt、after.txt、recovery.log、updater.log、health-final.json、docker
 IPと表示用ドメインを含むため、共有時には内容を確認します。設定ファイルは試験記録に含めません。
 記録の削除は運用に影響しませんが、運用中のconfig・state・監視履歴とは取り違えないでください。
 
+保存先の `~/mydns-recovery-results` はSSHにログインしたユーザーのホーム内です。
+同じユーザーでDSMへログインしていれば、通常はFile Stationの `home → mydns-recovery-results` で見つかります。
+docker共有フォルダー内ではありません。表示されない場合の確認方法も、次のリンク先に記載しています。
+
 Windowsへ持ち帰る場合だけ、[記録のコピー手順](docker-recovery.md#必要な場合だけ記録をwindowsへコピーする)を使います。
 
 **実働環境での最終確認はここで完了です。** 回数上限まで繰り返す必要はありません。
@@ -265,6 +356,9 @@ BLOCKEDの場合も、そのまま履歴を消して試験を繰り返しませ�
 
 </details>
 
+試験と記録が終わったら、[Synology導入手順の最後の選択](synology.md#6-詳しい確認または通常運用へ進む)で、継続運用か停止・切り戻しを選びます。
+正常に終わった試験の後に、下の履歴リセットを行う必要はありません。
+
 ## 必要な場合だけ：自動復帰を無効にする・制限を解除する
 
 通常運用・正常な試験終了時には、以下の操作は不要です。
@@ -272,7 +366,7 @@ BLOCKEDの場合も、そのまま履歴を消して試験を繰り返しませ�
 <details>
 <summary>自動復帰だけを無効にする場合</summary>
 
-DSMのタスクスケジューラでMyDNS自動復帰の有効チェックを外し、保存します。
+DSMのタスクスケジューラでMyDNS Auto Recoveryの有効チェックを外し、保存します。
 すでに始まった確認が終わるまで待ちます。更新コンテナ自体は動いたままです。
 
 </details>

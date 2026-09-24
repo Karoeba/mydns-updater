@@ -59,9 +59,13 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - name: Check program shell syntax
+        run: |
+          for file in update.sh lib/*.sh; do sh -n "$file"; done
       - name: Test without Docker
         run: |
           sh tests/test-linux.sh
+          sh tests/test-program-layout.sh
           sh tests/test-healthcheck-linux.sh
           sh tests/test-health-monitor.sh
           sh tests/test-health-recovery.sh
@@ -160,6 +164,7 @@ jobs:
           docker exec "$cid" docker info >/dev/null
           docker cp tests/test-docker-cooperative-recovery.sh "$cid":/opt/probe.sh
           docker cp update.sh "$cid":/opt/update.sh
+          docker cp lib "$cid":/opt/lib
           docker exec -e GITHUB_ACTIONS=true "$cid" sh /opt/probe.sh
           docker exec "$cid" mkdir -p /opt/tests
           docker cp tests/test-docker-recovery-integration.sh "$cid":/opt/tests/integration.sh

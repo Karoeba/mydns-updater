@@ -2,7 +2,9 @@
 
 [資料一覧](README.md) ／ [Dockerの導入・運用](docker.md) ／ [テストの説明](testing.md)
 
-Ubuntu Server 24.04 LTS上のDocker EngineとComposeを使い、公開手順どおりの導入と動作を確認します。Docker未導入なら [UbuntuへのDocker導入](reference/ubuntu-docker.md) から進めます。
+Ubuntu上のDocker EngineとComposeで、実アカウントによる詳しい動作確認を行います。
+**先に[Docker導入手順の1〜4](docker.md)を終え、通知成功とhealthyを確認してください。**
+このページでは取得・初回設定のコピーを繰り返しません。
 
 ここでのコマンドはUbuntu側の端末で実行します。Synology Container Managerの操作手順ではありません。Ubuntu VMで成功しても、Container Managerの異常・復旧表示は別の確認として残ります。
 
@@ -23,113 +25,37 @@ tester@mydns-linux-test:~$
 - `~` は自分のホームフォルダーです。前に `\` を付けません。
 - エラーや違う結果が出たら、次の操作へ進まず、その手順番号と表示を控えます。
 
-## 1. コードを取得する
+## 1. 導入済みの場所と版を確認する
 
-Linux直接実行版の作業フォルダーと分け、新しいフォルダーを用意します。同名フォルダーがすでにある場合は中身を確認し、上書きしません。
-
-```sh
-sudo apt update
-sudo apt install git nano
-git clone --branch main --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
-cd mydns-updater-docker
-git rev-parse HEAD
-```
-
-mainは開発版です。試す対象がPRや公開済みリリースの場合は、その対象のコードを取得してください。Git以外で取得した場合は、展開したフォルダーの `update.sh` がある場所へ移動し、取得元・版を控えます。
-
-**確認：** 取得後、次を実行します。
-
-```sh
-pwd
-ls -l compose.yaml update.sh mydns.conf.example accounts.conf.example
-```
-
-`pwd` は現在いるフォルダーを表示します。ユーザー名がtesterなら `/home/tester/mydns-updater-docker` です。その下に指定した4ファイルが表示されれば、正しい場所です。
-
-<details>
-<summary>再開するとき・場所が分からなくなったときだけ</summary>
-
-初回の取得と場所の確認が済んだ場合は、この欄を飛ばして手順2へ進みます。
-別のPCから接続したときや、続きを始めるときは最初に次を実行します。
+Ubuntu側で、導入に使った作業フォルダーへ戻ります。
 
 ```sh
 cd ~/mydns-updater-docker
 pwd
-ls compose.yaml
+ls -l compose.yaml update.sh lib/*.sh
+grep '^VERSION=' update.sh
 ```
 
-`compose.yaml` が表示されたら再開できます。`No such file or directory` が出たら、そのまま次へ進みません。新しいフォルダーを作って埋め合わせず、ダウンロードした場所と名前を確認します。`no configuration file provided: not found` も、まずこの操作で場所を確認してください。
+**確認：** 場所がmydns-updater-dockerで、update.sh・compose.yaml・lib内の6ファイルが表示され、版が1.10.0なら続けます。
+取得先を変えた場合はcdのパスを合わせます。
+見つからない場合は、別の場所へ設定を作らず、導入時の場所を確認してください。
 
-確認できたら、中断していた手順へ戻ります。
+## 2. 模擬テストを済ませたことを確認する
 
-</details>
+[導入手順の模擬テスト](testing.md#dockerのコマンドライン)を同じ版で済ませた場合は、実行し直さず手順3へ進みます。
+まだなら実行し、終了コード0とALL TESTS PASSEDを確認してここへ戻ります。
+模擬テストと、この後の実アカウントによる確認は別です。
 
-## 2. 実アカウントを使わない模擬テスト
+## 3. 実アカウントのまま試験用の間隔に変更する
 
-```sh
-mkdir -p tests/reports
-sudo docker compose -f tests/compose.yaml run --build --rm test
-```
-
-[テスト手順](testing.md#dockerのコマンドライン) に掲載した6種類の成功表示を確認します。
-
-```sh
-cat tests/reports/result.txt
-```
-
-`ALL TESTS PASSED` が成功です。失敗した場合は `tests/reports/test.log` を確認します。イメージ構築前などの失敗では、新しいレポートがない場合があります。古い成功記録だけで判断せず、今回の端末表示も確認してください。
-
-さらにLinuxのDockerホスト側で、設定ファイルの上書きと健康状態の遷移を確認します。
-
-```sh
-sudo sh tests/test-config-reload.sh
-```
-
-次の2行が成功の目印です。
-
-```text
-ALL CONFIG RELOAD TESTS PASSED (4 checks)
-ALL DOCKER HEALTHCHECK TESTS PASSED (3 checks)
-```
-
-これは別の一時コンテナとダミーの通信を使います。実アカウントは不要で、NASの運用は継続できます。試験では待ち時間とヘルスチェックの間隔を短縮し、進行記録の期限も操作します。付属Composeの通常設定での確認は以下で行います。
-
-模擬テストはここで終了です。次から実アカウントを使います。
-
-## 3. 実アカウントを設定する
-
-同じアカウントで動くNASのプロジェクトを停止します。VM内のLinux直接実行版も停止・自動起動無効になっていることを確認します。設定と状態を他環境と共有せず、この作業フォルダーに用意します。
-
-**設定ファイルがない新規導入時だけ、次のコピーを行います。** 既存設定を使う場合はこの枠を飛ばし、下の「確認」から進みます。
-
-```sh
-mkdir -p config state
-cp mydns.conf.example config/mydns.conf
-cp accounts.conf.example config/accounts.conf
-chmod 600 config/mydns.conf config/accounts.conf
-```
-
-**確認：** 編集前に、作ったファイルの場所を確かめます。
-
-```sh
-pwd
-ls -ld config state
-ls -l config/mydns.conf config/accounts.conf
-```
-
-作業場所が `/home/自分のユーザー名/mydns-updater-docker` で、2つのフォルダーと2つの設定ファイルが表示されれば進めます。内容やパスワードを画面へ出す必要はありません。
-
-```sh
-nano config/accounts.conf
-```
-
-各アカウントのID・PASSWORD・DOMAINを記入します。2件目はセクション行と3項目をまとめて有効にします。nanoはCtrl+O → Enterで保存、Ctrl+Xで終了します。
+NASやLinux直接実行版など、同じ実アカウントを使う別環境は停止したままにします。
+導入済みのaccounts.confはそのまま使い、記入例で上書きしません。
 
 ```sh
 nano config/mydns.conf
 ```
 
-異常・復旧の待ち時間を短くするため、該当行を次の値に変更します。重複追加はしません。
+共通設定の該当行を変更します。重複追加はしません。
 
 ```ini
 CHECK_INTERVAL=60
@@ -137,39 +63,33 @@ FORCE_UPDATE_INTERVAL=3600
 DEBUG=1
 ```
 
-保存後、共通設定の3項目だけを確認します。
+Ctrl+O、Enterで保存し、Ctrl+Xで終了します。
 
 ```sh
 grep -E '^(CHECK_INTERVAL|FORCE_UPDATE_INTERVAL|DEBUG)=' config/mydns.conf
 ```
 
-**確認：** 上の設定と同じ3行が、それぞれ1回ずつ表示されれば進めます。別の数字、行の不足・重複があれば、同じファイルを開いて直します。
+**確認：** 上の3項目が同じ値で、それぞれ1行ずつ表示されます。
+設定は次の確認周期で反映されます。変更前が300秒なら、その待ち時間が残ることがあります。
 
-## 4. 構築して起動する
-
-同じDocker環境に `mydns-updater` というコンテナがすでにある場合は、新規試験を重ねず既存の用途を確認します。
+## 4. 通常動作を確認する
 
 ```sh
-sudo docker compose config --quiet
-sudo docker compose up -d --build
-sudo docker compose ps
 sudo docker compose logs --tail 50
-```
-
-`config --quiet` はエラーなしで終了すればComposeの構文確認成功です。起動ログのバージョン、各アカウントの `MyDNS update: OK` と状態ファイルの生成を確認します。
-
-```sh
 sudo ls -l state/state.conf
-sudo docker inspect --format '{{.State.Health.Status}}' mydns-updater
+sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}}' mydns-updater
 ```
 
-起動直後は `starting` です。通常は次の確認を待つと `healthy` になります。必要なら30〜60秒後に再度実行します。通知成功は通常ログ、処理の進行はヘルスチェックでそれぞれ判断します。
+**成功：** running healthy、state.confの存在、約1分ごとのCHECKログを確認します。
+各アカウントの通知成功はMyDNS update: OKで判断します。既存stateがある場合、通知期限前のSKIPは正常です。
 
-**次へ進む条件：** 両アカウントを設定した場合は両方の通知成功と、`healthy` を確認します。まだ `starting` なら待って同じ状態確認コマンドをもう一度実行します。
+**次は選択です。**
+自動復帰をまだ使っておらず、手動での異常・復旧表示も試すなら手順5へ進みます。
+自動復帰の検証を行う場合は手順5を飛ばし、手順6で通常動作を確認してから、自動復帰の手順へ進みます。
 
 ## 5. 異常と復旧を確認する
 
-**この節は自動復帰を使わず、手動で再開する試験です。** 自動復帰を有効にしている場合は、この節の代わりに[Docker自動復帰の動作確認](docker-systemd-recovery.md#5-定期実行による自動復帰を1回試す)を行います。本ページのbefore.txt・after.txtや手順7の保存一覧は、手動復旧試験を行った場合のものです。
+**この節は自動復帰を使わず、手動で再開する試験です。** すでに自動復帰を有効にしている場合は、この節を飛ばして手順6へ進みます。自動復帰は手順6の通常動作確認後に、[Docker自動復帰の手順](docker-systemd-recovery.md)で確認します。本ページのbefore.txt・after.txtや手順7の保存一覧は、手動復旧試験を行った場合のものです。
 
 試験用VMのコンテナだけで行います。ここでは更新処理だけを一時停止し、Docker側のヘルスチェックは動かしたままにします。`docker pause` や `docker compose stop` に置き換えません。
 
@@ -291,6 +211,11 @@ sudo docker compose logs --since 2m
 
 IP不変・期限前なら、更新理由ではなくSKIPが表示されます。再起動直後も、状態ファイルの前回成功時刻が基準です。
 
+通常動作の確認が済んだら、自動復帰も試す場合は[Docker自動復帰](docker-systemd-recovery.md)を手順1から進めます。
+同じ版で導入済みの設定は作り直さず確認し、手順5の試験と記録まで終えて、このページの手順7へ戻ります。
+**その資料の「VMでの試験を終了する場合」はまだ行いません。** 最後の停止・切り戻しはここでまとめて行います。
+自動復帰を使わない場合は、そのまま手順7へ進みます。
+
 ## 7. 記録して終了する
 
 ### 7-1. 最後の健康状態を確認する
@@ -302,6 +227,12 @@ sudo docker inspect --format '{{.State.Health.Status}}' mydns-updater
 `healthy` と表示されたら保存へ進みます。`starting` なら30秒ほど待って再確認します。
 
 ### 7-2. 記録を保存する
+
+先に保存先を用意します。手順5を飛ばした場合でも必要です。
+
+```sh
+mkdir -p ~/mydns-docker-results
+```
 
 **Gitで取得した場合は下の5行を実行します。ZIPで取得した場合は最初の4行だけを実行し、最後のgitコマンドは飛ばします。**
 
@@ -324,14 +255,23 @@ ls -lh ~/mydns-docker-results
 cat ~/mydns-docker-results/health-final.json
 ```
 
-一覧にbefore.txt、after.txt、health-unhealthy.json、health-recovered.json、health-final.json、updater.log、docker-version.txt、compose-version.txt、commit.txtが並び、サイズが0でないことを確認します。Git以外で取得した場合はcommit.txtの代わりに取得元のメモを残します。最後のJSONは `"Status":"healthy"` が目印です。
+一覧にhealth-final.json、updater.log、docker-version.txt、compose-version.txt、commit.txtが並び、サイズが0でないことを確認します。
+手順5を実施した場合だけ、before.txt、after.txt、health-unhealthy.json、health-recovered.jsonも確認します。
+自動復帰を試した場合は、その資料で保存したmydns-recovery-results内の記録を別に保持します。Git以外で取得した場合はcommit.txtの代わりに取得元のメモを残します。最後のJSONは `"Status":"healthy"` が目印です。
 
 ### 7-3. 試験側を止めてNASへ戻す
 
 **試験を終えてNASへ戻す場合だけ行います。** VMのDockerで継続運用する場合は、この節の停止を飛ばして7-4へ進みます。NAS側は停止したままにし、試験用の設定を運用時の値へ戻してください。
 
 通常は手順5で再開済みです。途中で中断し一時停止したままの場合だけ、先に手順5-3のCONTで再開してください。
-その後、試験コンテナを停止します。
+自動復帰を使った場合だけ、先にタイマーと実行中の確認を停止します。
+
+```sh
+sudo systemctl disable --now mydns-updater-docker-recovery.timer
+sudo systemctl stop mydns-updater-docker-recovery.service
+```
+
+使っていなければ上の操作は飛ばします。その後、試験コンテナを停止します。
 
 ```sh
 sudo docker compose stop
@@ -389,10 +329,10 @@ Windowsへコピーしたら、ファイルを右クリックしてメモ帳な�
 ## 確認記録
 
 - 取得した版、Docker／Composeのバージョン
-- 模擬テスト6種類とホスト側4＋3項目の成功
+- 模擬テスト7種類とホスト側4＋3項目の成功
 - 構築・起動、実通知、状態生成
-- 通常のCompose設定でhealthy → unhealthy → healthy
-- 再起動せずに復旧したこと
+- 手順5を選んだ場合：healthy → unhealthy → healthy、再起動せず手動再開できたこと
+- 自動復帰を選んだ場合：別資料での定期実行・RESTART_ATTEMPTからRECOVERED、手動停止の維持
 - 設定再読み込み、定期通知、再起動後の状態引き継ぎ
 - 試験終了後の停止と運用環境への切り戻し
 

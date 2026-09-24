@@ -39,15 +39,15 @@ Dockerが表示するunhealthyをさらに3回数えるのではなく、毎回�
 
 ## 本番導入前に組み合わせを試す
 
-取得したv1.9.0の作業フォルダーで実行します。SynologyではNASへSSH接続した端末、UbuntuではUbuntu側の端末です。
+取得したv1.10.0の作業フォルダーで実行します。SynologyではNASへSSH接続した端末、UbuntuではUbuntu側の端末です。
 本番のconfigとstateをコピーする必要はありません。本番コンテナは動かしたままで構いません。
 
 ```sh
 pwd
-ls -l update.sh docker-health-recover.sh tests/test-docker-recovery-integration.sh
+ls -l update.sh lib/*.sh docker-health-recover.sh tests/test-docker-recovery-integration.sh
 ```
 
-指定した3ファイルが表示されたら実行します。見つからない場合は先へ進まず、取得した版と作業場所を確認してください。
+指定した3ファイルとlib内の6ファイルが表示されたら実行します。見つからない場合は先へ進まず、取得した版と作業場所を確認してください。
 
 ```sh
 sudo sh tests/test-docker-recovery-integration.sh --disposable-test > recovery-integration.log 2>&1
@@ -65,10 +65,52 @@ ALL DOCKER RECOVERY INTEGRATION TESTS PASSED
 ```
 
 この2行が成功の目印です。途中の `Container ... is restarting` だけでは失敗と判断しません。
-失敗した場合は導入を進めず、今回のログを確認します。成功したら、選んだ環境の導入手順へ戻ります。
-
-recovery-integration.logは試験結果です。監視スクリプトの運用ログとは別の記録として保存します。
+失敗した場合は導入を進めず、今回のログを確認します。
 この試験だけでは、DSMやsystemdからの定期実行を確認したことにはなりません。
+
+### この試験の記録はすでに保存されています
+
+上の試験コマンドは、実行した作業フォルダーに `recovery-integration.log` を自動で保存します。
+別の保存コマンドや、保存のための再試験は不要です。
+後から結果を見直したり、不具合を相談したりするときに使います。
+
+Synologyの手順どおりに配置した場合、保存先は次の場所です。
+
+```text
+File Station：docker → mydns-recovery-check → recovery-integration.log
+SSHでの場所：/volume1/docker/mydns-recovery-check/recovery-integration.log
+```
+
+Ubuntuなどでも、試験を実行したフォルダーの直下に同じ名前で保存されます。
+保存先が分からない場合だけ、試験した端末で次を実行します。
+
+```sh
+pwd
+ls -lh recovery-integration.log
+```
+
+pwdで作業フォルダーが表示され、その下にログの更新日時とサイズが出れば、ファイルを確認できています。
+ファイルが見つからない場合は、試験時の作業フォルダーへ戻って確認します。
+
+### Synologyで記録をPCへ保存する場合
+
+NAS内の記録をそのまま残すだけでも構いません。PCへ持ち帰る場合は次の操作を行います。
+
+1. DSMのFile Stationを開きます。
+2. 共有フォルダー `docker` → `mydns-recovery-check` を開きます。
+3. `recovery-integration.log` の更新日時が、今回の試験時刻になっていることを確認します。
+4. ファイルを右クリックし、「ダウンロード」を選びます。
+5. PCのダウンロード先でファイルを確認し、メモ帳などで開きます。
+
+成功時のログには `ALL DOCKER RECOVERY INTEGRATION TESTS PASSED` が含まれます。
+画面に表示した「試験の終了コード: 0」は、このログには含まれません。終了コードは試験直後の画面で確認します。
+同じ場所で再試験するとログは上書きされるため、前回分も残したい場合は先にダウンロードして名前を変えます。
+
+**この試験で保存する記録はrecovery-integration.logです。**
+後半に出てくるbefore.txt・after.txtなどは、実働コンテナでの自動復帰試験の記録です。
+今回の組み合わせ試験だけを終えた段階では、それらを用意する必要はありません。
+
+成功と記録を確認したら、[Synologyの手順](synology-recovery.md#通常運用のコンテナを確認する)または[通常のDockerの手順](docker-systemd-recovery.md)へ戻ります。
 
 ## ログの見方
 
@@ -122,7 +164,10 @@ consecutiveは現在の連続期限超過回数、last_attemptは最後の要求
 
 ## 保存した記録の見方
 
-各環境の自動復帰試験では、ホーム内のmydns-recovery-resultsへ記録します。
+ここからは、**実働コンテナで自動復帰を試した後の記録**について説明します。
+本番導入前の組み合わせ試験のログは、[この試験の記録はすでに保存されています](#この試験の記録はすでに保存されています)を参照してください。
+
+Synology・通常のDockerそれぞれの手順で記録用コマンドを実行すると、ホーム内のmydns-recovery-resultsへ保存されます。
 後から結果を確認したり、不具合の相談で試験時の状態を伝えたりするためのものです。運用に必要なファイルではありません。
 
 | ファイル | 後で確認すること |
@@ -138,6 +183,51 @@ health-final.jsonという名前でも、中のStatusがunhealthyなら、保存
 これらは保存時点の写しで、今の状態を自動表示するものではありません。
 
 ## 必要な場合だけ：記録をWindowsへコピーする
+
+### SynologyのFile Stationで探す場合
+
+`~/mydns-recovery-results` の `~` は、**SSHにログインしたユーザーのホームフォルダー**です。
+作業中のdockerフォルダーや、PCのホームを意味するものではありません。
+
+ユーザーホームサービスが有効で、SSHとDSMに同じユーザーでログインしている場合は、File Stationで次を開きます。
+
+```text
+home/
+└── mydns-recovery-results/
+    ├── before.txt
+    ├── after.txt
+    ├── recovery.log
+    ├── updater.log
+    ├── health-final.json
+    └── docker-version.txt
+```
+
+管理者としてhomesが見える場合は、`homes → SSHにログインしたユーザー名 → mydns-recovery-results` からも探せます。
+homeは自分用、homesは各ユーザーのホームをまとめた場所です。
+[Synologyのユーザーホームの説明](https://kb.synology.com/en-global/DSM/tutorial/user_enable_home_service)
+
+1. File Stationで上記のフォルダーを開きます。
+2. 中のファイルの更新日時が今回の試験時刻と合うことを確認します。
+3. 必要なファイルを選択して右クリックし、「ダウンロード」でPCへ保存します。
+
+**見つからない場合だけ：** 試験したNASのSSH画面で次を実行します。
+
+```sh
+whoami
+printf '記録の保存先: %s/mydns-recovery-results\n' "$HOME"
+ls -lh "$HOME/mydns-recovery-results"
+```
+
+最初にSSHのユーザー名、次に保存先とファイル一覧が表示されます。
+DSMに別のユーザーでログインしていると、homeからは別の場所が見えます。
+rootへ切り替えた端末で保存した場合などは、File Stationから見えない場所になっていることもあります。
+homeが表示されない場合はユーザーホームサービスや権限も関係します。記録を取るためだけに設定や権限を変更する必要はありません。
+下のコピーコマンドで取得できるなら、その方法で構いません。
+
+### Windowsのコマンドでコピーする場合
+
+以下は、実働コンテナの試験記録をフォルダーごとコピーする手順です。
+組み合わせ試験のrecovery-integration.logをSynologyから取得する場合は、[File Stationでダウンロード](#synologyで記録をpcへ保存する場合)できます。
 
 各環境の手順で作ったmydns-recovery-resultsは、その端末のログインユーザーのホームにあります。
 SSH接続中のLinux画面で、Windows向けのコピーコマンドを実行しないでください。

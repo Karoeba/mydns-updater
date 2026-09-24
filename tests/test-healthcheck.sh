@@ -1,7 +1,6 @@
 #!/bin/sh
 set -eu
-awk '/^STARTUP_LOGGED=0$/ {exit} {print}' /source/update.sh > /tmp/health-library.sh
-. /tmp/health-library.sh
+. /suite/load-library.sh
 COUNT=0
 pass() { COUNT=$((COUNT + 1)); echo "PASS health $COUNT: $*"; }
 fail() { cat /tmp/health.log; echo "FAIL health: $*"; exit 1; }

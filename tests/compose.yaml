@@ -9,5 +9,6 @@ services:
     volumes:
       - ./:/suite:ro
       - ../update.sh:/source/update.sh:ro
+      - ../lib:/source/lib:ro
       - ./reports:/reports
     command: ["sh", "/suite/entrypoint.sh"]

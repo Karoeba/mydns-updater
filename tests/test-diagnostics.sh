@@ -1,8 +1,7 @@
 #!/bin/sh
 set -eu
 # Run only inside the disposable test container, after the existing suite.
-awk '/^STARTUP_LOGGED=0$/ {exit} {print}' /source/update.sh > /tmp/diagnostic-library.sh
-. /tmp/diagnostic-library.sh
+. /suite/load-library.sh
 TEST_TIME=100
 diagnostic_clock() { echo "$TEST_TIME"; }
 COUNT=0
