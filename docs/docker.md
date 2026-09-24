@@ -54,11 +54,11 @@ Linux直接実行版のように/etcなどへコピーする手順ではあり�
 
 ## 1. 作業フォルダーを用意する
 
-使用する版を取得します。次はv1.10.0の試験用ブランチを新しいフォルダーへ取得する例です。まだmainにマージしていません。
+mainのプログラム一式を、新しい作業フォルダーへ取得します。
 同名フォルダーがすでにある場合は取得を繰り返さず、中身を確認します。
 
 ```sh
-git clone --branch v1.10.0-modular-core --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
+git clone --branch main --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
 cd mydns-updater-docker
 pwd
 ls -l compose.yaml update.sh lib/*.sh mydns.conf.example accounts.conf.example

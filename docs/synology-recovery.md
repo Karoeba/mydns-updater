@@ -33,7 +33,7 @@ mydns-updater/stateの通知成功記録を、mydns-recovery/stateへコピー�
 
 ### PCで入手し、File Stationで置く
 
-1. [v1.10.0の試験用ZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.10.0-modular-core.zip)をPCへダウンロードし、展開します。
+1. [mainのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/main.zip)をPCへダウンロードし、展開します。
 2. 展開したフォルダーを開き、update.shがある階層まで進みます。
 3. File Stationで共有フォルダー `docker` の中に `mydns-recovery-check` を作ります。
 4. 展開フォルダーの**中身をすべて**、そこへアップロードします。

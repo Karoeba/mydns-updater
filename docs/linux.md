@@ -99,7 +99,7 @@ sudo apt install curl ca-certificates tzdata git nano util-linux coreutils
 ### まだ取得していない場合だけ
 
 ```sh
-git clone --branch v1.10.0-modular-core --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater
+git clone --branch main --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater
 cd mydns-updater
 ```
 

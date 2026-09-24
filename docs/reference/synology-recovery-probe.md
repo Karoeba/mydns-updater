@@ -9,7 +9,7 @@
 
 ## 1. 試験ファイルを別のフォルダーに用意する
 
-[v1.10.0-modular-coreブランチのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.10.0-modular-core.zip)をダウンロードして展開します。
+[mainのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/main.zip)をダウンロードして展開します。
 
 File Stationで、展開した中身を次の場所にアップロードしてください。
 
