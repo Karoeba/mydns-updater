@@ -49,6 +49,7 @@ missing) echo 'UNHEALTHY: progress record unavailable'; exit 1 ;;
 invalid) echo 'UNHEALTHY: invalid progress record'; exit 1 ;;
 dead) echo 'UNHEALTHY: updater process unavailable'; exit 1 ;;
 secret) echo 'private-password-body'; exit 1 ;;
+failed) echo 'private-password-body'; exit 126 ;;
 timeout) sleep 10; exit 1 ;;
 stop) echo inactive > "$FIXTURE/active"; echo 'UNHEALTHY: updater progress overdue'; exit 1 ;;
 restart) echo 33333333333333333333333333333333 > "$FIXTURE/gen"; echo 'UNHEALTHY: updater progress overdue'; exit 1 ;;
@@ -71,6 +72,7 @@ echo ok > "$TASK/mode"
 run; grep -q RECOVERED "$TASK/log"
 run; [ ! -s "$TASK/log" ]
 pass 'healthy confirmation after request logs recovery once'
+rm -f "$TASK/state/diagnostic" # Upgrade from old nine-field status without diagnostics.
 echo bad > "$TASK/mode"
 echo 10599 > "$TASK/now"
 run; run; run; attempts 1
@@ -97,13 +99,36 @@ pass 'manual stop before/during observation never starts service'
 echo active > "$TASK/active"; echo bad > "$TASK/mode"; run; run
 echo restart > "$TASK/mode"; run; attempts 3
 pass 'observation spanning a new invocation is discarded'
-for mode in missing invalid dead secret timeout; do
+for pair in missing:RECORD_UNAVAILABLE invalid:RECORD_INVALID dead:PROCESS_UNAVAILABLE secret:PROBE_UNKNOWN timeout:PROBE_TIMEOUT failed:PROBE_FAILED; do
     run --reset
+    mode=${pair%%:*}; code=${pair#*:}
     echo "$mode" > "$TASK/mode"
-    run; run; run; attempts 3
+    run
+    if [ "$mode" = missing ]; then
+        [ ! -s "$TASK/log" ] || fail 'startup missing record warned too soon'
+        echo 20120 > "$TASK/now"; run
+    fi
+    grep -q "PROBE_UNAVAILABLE; reason=$code" "$TASK/log" || fail 'missing diagnostic'
     if grep -q private-password "$TASK/log"; then fail 'secret leaked'; fi
+    run; [ ! -s "$TASK/log" ] || fail 'duplicate warning'; attempts 3
+    echo ok > "$TASK/mode"; run
+    grep -q PROBE_RECOVERED "$TASK/log" || fail 'missing probe recovery'
+    run; [ ! -s "$TASK/log" ] || fail 'duplicate recovery'
 done
-pass 'missing/bad record, missing process, unknown output and timeouts do not restart'
+pass 'fixed diagnostics, duplicate suppression and recovery; no restart or secrets'
+echo invalid > "$TASK/mode"; run
+echo secret > "$TASK/mode"; run
+grep -q 'reason=PROBE_UNKNOWN' "$TASK/log" || fail 'changed cause not reported'
+attempts 3
+pass 'changed diagnostic cause is reported without raw output'
+run --reset
+echo missing > "$TASK/mode"; echo 21000 > "$TASK/now"; run
+echo 21119 > "$TASK/now"; run; [ ! -s "$TASK/log" ]
+echo 21120 > "$TASK/now"; run
+grep -q 'reason=RECORD_UNAVAILABLE' "$TASK/log"
+echo bad > "$TASK/mode"; run
+grep -q PROBE_RECOVERED "$TASK/log"; attempts 3
+pass '120 second grace boundary and restored overdue assessment'
 run --reset
 echo bad > "$TASK/mode"; run; run
 echo missing > "$TASK/mode"; run

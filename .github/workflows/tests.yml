@@ -32,7 +32,18 @@ jobs:
           grep -Fxq 'ALL TESTS PASSED' tests/reports/result.txt
 
       - name: Test host-side configuration replacement
+        shell: bash
         run: sh tests/test-config-reload.sh | tee tests/reports/config-reload.log
+
+      - name: Verify pipeline failure propagation
+        shell: bash
+        run: |
+          set +e
+          bash --noprofile --norc -eo pipefail -c 'sh -c "echo intentional-test-failure; exit 7" | tee tests/reports/pipefail.log'
+          result=$?
+          set -e
+          test "$result" -eq 7
+          grep -Fxq intentional-test-failure tests/reports/pipefail.log
 
       - name: Save test reports
         if: always()
@@ -69,6 +80,7 @@ jobs:
           sh tests/test-healthcheck-linux.sh
           sh tests/test-health-monitor.sh
           sh tests/test-health-recovery.sh
+          sh tests/test-notify-interval.sh
           python3 tests/test-shutdown.py
           python3 tests/test-docker-recovery-policy.py
       - name: Validate service unit
@@ -77,6 +89,28 @@ jobs:
         run: |
           sudo --preserve-env=GITHUB_ACTIONS sh tests/test-monitor-systemd.sh
           sudo --preserve-env=GITHUB_ACTIONS sh tests/test-recovery-systemd.sh
+
+  network:
+    name: Real curl (${{ matrix.platform }})
+    runs-on: ${{ matrix.platform == 'alpine' && 'ubuntu-24.04' || matrix.platform }}
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-22.04, ubuntu-24.04, alpine]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - name: Real curl on Ubuntu (including curl before 8.4)
+        if: matrix.platform != 'alpine'
+        run: |
+          curl --version
+          python3 tests/test-network-limits.py
+      - name: Real curl on Alpine
+        if: matrix.platform == 'alpine'
+        run: |
+          docker run --rm -v "$PWD:/source:ro" -w /source alpine:latest sh -c 'apk add --no-cache curl python3 tzdata && curl --version && python3 tests/test-network-limits.py && sh tests/test-notify-interval.sh'
 
   docs:
     name: Documentation shell syntax

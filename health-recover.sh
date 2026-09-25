@@ -21,11 +21,12 @@ done
 exec 9>"$DIR/lock" || fatal 'cannot open lock'
 flock -n 9 || exit 0
 STATE="$DIR/status"
+DIAG="$DIR/diagnostic"
 TEMP=""
 trap '[ -z "$TEMP" ] || rm -f "$TEMP"' 0
 trap 'exit 1' INT TERM
 if [ "${1:-}" = --reset ]; then
-    rm -f "$STATE" || fatal 'cannot reset state'
+    rm -f "$STATE" "$DIAG" || fatal 'cannot reset state'
     log INFO 'RESET; recovery history cleared; service was not started'
     exit 0
 fi
@@ -76,6 +77,38 @@ if [ "$status" -eq 2 ]; then COUNT=0; save; exit 0; fi
 [ "$status" -eq 0 ] || fatal 'cannot read target service state'
 BEFORE="$CURRENT_GEN"
 if [ "$GEN" != "$BEFORE" ]; then GEN="$BEFORE"; COUNT=0; fi
+# Separate optional diagnostic file keeps the existing nine-field history compatible.
+# Fixed codes only: never persist or log probe output.
+D_BOOT="$BOOT"; D_GEN="$BEFORE"; D_SINCE="$NOW"; D_CODE=NONE
+if [ -f "$DIAG" ]; then
+    if ! awk '
+        NR!=1 || NF!=4 {exit 1}
+        $1 !~ /^[a-zA-Z0-9-]+$/ || length($1)>64 {exit 1}
+        $2 !~ /^[0-9a-f]+$/ || length($2)!=32 {exit 1}
+        $3 !~ /^[0-9]+$/ || length($3)>10 {exit 1}
+        $4 !~ /^(NONE|RECORD_UNAVAILABLE|RECORD_INVALID|PROCESS_UNAVAILABLE|PROBE_TIMEOUT|PROBE_FAILED|PROBE_UNKNOWN)$/ {exit 1}
+        END {if(NR!=1) exit 1}' "$DIAG"; then
+        fatal 'invalid diagnostic state; inspect logs and reset manually'
+    fi
+    read -r D_BOOT D_GEN D_SINCE D_CODE < "$DIAG"
+    if [ "$D_BOOT" != "$BOOT" ] || [ "$D_GEN" != "$BEFORE" ]; then
+        D_SINCE="$NOW"
+    fi
+fi
+diagnostic_save() {
+    TEMP="$(mktemp "$DIR/diagnostic.XXXXXX")" || fatal 'cannot create diagnostic state'
+    printf '%s %s %s %s\n' "$BOOT" "$BEFORE" "$D_SINCE" "$D_CODE" > "$TEMP" &&
+        mv -f "$TEMP" "$DIAG" || fatal 'cannot save diagnostic state'
+    TEMP=""
+}
+diagnostic_clear() {
+    if [ "$D_CODE" != NONE ]; then
+        log INFO 'PROBE_RECOVERED; health assessment available again'
+    fi
+    # Retain generation age so later missing records are not mistaken for startup.
+    D_CODE=NONE
+    diagnostic_save
+}
 RESULT=0
 # Only service control needs privilege; execute the probe as the updater user.
 OUTPUT="$(timeout -k 1 5 runuser -u "$PROBE_USER" -- env MYDNS_HEALTH_FILE="$HEALTH" \
@@ -86,6 +119,7 @@ if [ "$status" -eq 2 ]; then COUNT=0; save; exit 0; fi
 [ "$status" -eq 0 ] || fatal 'cannot read target service state'
 if [ "$CURRENT_GEN" != "$BEFORE" ]; then GEN="$CURRENT_GEN"; COUNT=0; save; exit 0; fi
 if [ "$RESULT" -eq 0 ] && [ "$OUTPUT" = 'HEALTHY: updater progressing or waiting' ]; then
+    diagnostic_clear
     COUNT=0
     if [ "$PENDING" -eq 1 ]; then
         PENDING=0; save
@@ -94,8 +128,25 @@ if [ "$RESULT" -eq 0 ] && [ "$OUTPUT" = 'HEALTHY: updater progressing or waiting
     exit 0
 fi
 if [ "$RESULT" -ne 1 ] || [ "$OUTPUT" != 'UNHEALTHY: updater progress overdue' ]; then
+    case "$RESULT:$OUTPUT" in
+        '1:UNHEALTHY: progress record unavailable') CODE=RECORD_UNAVAILABLE ;;
+        '1:UNHEALTHY: invalid progress record') CODE=RECORD_INVALID ;;
+        '1:UNHEALTHY: updater process unavailable') CODE=PROCESS_UNAVAILABLE ;;
+        124:*|137:*) CODE=PROBE_TIMEOUT ;;
+        0:*|1:*) CODE=PROBE_UNKNOWN ;;
+        *) CODE=PROBE_FAILED ;;
+    esac
+    # Only a missing record gets a startup grace; never grant a restart allowance.
+    if [ "$CODE" != RECORD_UNAVAILABLE ] || [ $((NOW-D_SINCE)) -ge 120 ]; then
+        if [ "$D_CODE" != "$CODE" ]; then
+            log WARN "PROBE_UNAVAILABLE; reason=$CODE; no restart requested"
+            D_CODE="$CODE"
+        fi
+    fi
+    diagnostic_save
     COUNT=0; save; exit 0
 fi
+diagnostic_clear
 [ "$COUNT" -ge 3 ] || COUNT=$((COUNT+1))
 save
 [ "$COUNT" -eq 3 ] && [ "$BLOCKED" -eq 0 ] || exit 0

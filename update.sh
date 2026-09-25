@@ -1,6 +1,6 @@
 #!/bin/sh
 
-VERSION="1.10.0"
+VERSION="1.10.1"
 # MYDNS_DOCKER_RECOVERY_PROTOCOL=1
 # Resolve modules beside this entry point, never from the caller's working directory.
 case "$0" in
