@@ -6,9 +6,9 @@ MyDNS.JPへIPv4アドレスを自動通知する軽量な常駐ツールです�
 
 このREADMEには、各環境で共通する設定と動作をまとめています。導入・更新・自動復帰の操作は、次の入口から自分の環境を選んでください。
 
-Dockerを使わずに動かす [Linux直接実行版](docs/linux.md) も用意しています。旧版はUbuntu Server 24.04 LTS（DS1522+上のx86-64 VM）で動作確認済みです。v1.10.0の確認状況は[テスト記録](docs/testing.md#v1100の確認範囲)に記載しています。ARM機や他のLinux環境は未検証です。
+Dockerを使わずに動かす [Linux直接実行版](docs/linux.md) も用意しています。v1.10.1はUbuntu 24（DS1522+上のx86-64 VM）で通常動作と自動復帰を確認済みです。確認範囲と過去の結果は[テスト記録](docs/testing.md#v1101の確認範囲)に記載しています。ARM機や他のLinux環境は未検証です。
 
-このブランチはv1.10.1の開発版です。Releaseは未公開です。公開済みの版は [公開済みリリース](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
+現在のmainはv1.10.1の開発版です。Releaseは未公開です。公開済みの版は [公開済みリリース](https://github.com/Karoeba/mydns-updater/releases) を参照してください。
 
 導入・テスト・参考資料は [ドキュメント一覧](docs/README.md) から参照できます。
 
@@ -241,7 +241,7 @@ LAST_UPDATE=1789200000
 同じ版のupdate.shとlib全体を配置します。Linuxの自動復帰を利用している場合はhealth-recover.shも更新します。
 設定・state.conf・復帰履歴statusは引き継ぎ、初期化しません。新しいdiagnosticは自動生成されます。
 FORCE_UPDATE_INTERVALが259200秒を超える既存設定と、.curlrcへの依存は、上の設定・通信応答の説明に従って見直してください。
-検証中の版はまだmainにありません。試す場合はreview-fixes-v1.10.1ブランチを取得してください。通常導入のmain取得手順とは区別します。
+v1.10.1の修正はmainへマージ済みです。試験ブランチへ切り替える必要はありません。[取得する版と更新時の確認](docs/current-version.md)に従い、同じ一式を取得・配置し、起動ログまで確認してください。
 
 ### v1.9.0からの更新
 
@@ -251,7 +251,7 @@ FORCE_UPDATE_INTERVALが259200秒を超える既存設定と、.curlrcへの依�
 - Docker・Synologyでは `compose.yaml` に `./lib:/app/lib:ro` が追加されるため、コンテナを再作成します。
 - Linuxでは `/usr/local/lib/mydns-updater/lib/` を追加します。具体的な操作は上の環境別手順を使います。
 
-**古い版から直接v1.10.0へ更新する場合も、この変更が必要です。** 以下は各版で加わった変更点です。
+**古い版から直接v1.10.1へ更新する場合も、この変更が必要です。** 以下は各版で加わった変更点です。
 
 ### v1.8.0からの更新
 

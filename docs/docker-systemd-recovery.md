@@ -1,5 +1,8 @@
 # 通常のDockerの自動復帰を設定する
 
+<!-- current-version: 1.10.1 -->
+対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+
 [Dockerの導入・運用](docker.md) ／ [共通の条件とログの意味](docker-recovery.md)
 
 Ubuntuなど、systemdを使うDockerホスト向けです。Ubuntu VMの場合も、Ubuntu側の端末で実行します。
@@ -32,10 +35,10 @@ Dockerの動作確認から来た場合は、5-4の記録まで終えて[同資�
 
 ## 1. 対象とファイルを確認する
 
-[Dockerの導入・更新手順](docker.md)で、コンテナ内のプログラム一式をv1.10.0にします。
+[Dockerの導入・更新手順](docker.md)で、コンテナ内のプログラム一式をv1.10.1にします。
 旧mainや別の試験用フォルダーのファイルを使わないよう、取得した版も確認します。
 
-以下はv1.10.0のファイルを置いたフォルダーで実行します。ホーム内に取得した場合の例です。
+以下はv1.10.1のファイルを置いたフォルダーで実行します。ホーム内に取得した場合の例です。
 
 ```sh
 cd ~/mydns-updater-docker
@@ -44,9 +47,10 @@ grep '^VERSION=' update.sh
 ls -l docker-health-recover.sh deploy/linux/mydns-updater-docker-recovery.service deploy/linux/mydns-updater-docker-recovery.timer
 ps -p 1 -o comm=
 sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}} {{.HostConfig.RestartPolicy.Name}}' mydns-updater
+sudo docker logs --tail 50 mydns-updater
 ```
 
-**確認：** v1.10.0のファイル、指定した3ファイル、`systemd`、`running healthy unless-stopped` が確認できれば進めます。
+**確認：** v1.10.1のファイル、指定した3ファイル、`systemd`、最新のSTARTUPが `v1.10.1`、`running healthy unless-stopped` が確認できれば進めます。
 この版で初めて試す場合は、先に[試験専用コンテナでの確認](docker-recovery.md#本番導入前に組み合わせを試す)を行います。
 
 ## 2. 監視用ファイルを配置する
@@ -137,6 +141,7 @@ UbuntuなどDockerホスト側の端末で実行します。
 
 ```sh
 sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}} {{.HostConfig.RestartPolicy.Name}}' mydns-updater
+sudo docker logs --tail 50 mydns-updater
 sudo sh /usr/local/lib/mydns-updater/docker-health-recover.sh --status
 ```
 

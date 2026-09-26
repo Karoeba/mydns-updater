@@ -121,6 +121,8 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
           persist-credentials: false
+      - name: Check current documentation version
+        run: python3 tests/test-doc-version.py
       - name: Parse documented shell commands without executing them
         shell: bash
         run: |

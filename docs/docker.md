@@ -1,5 +1,8 @@
 # 通常のDocker・Composeで使う
 
+<!-- current-version: 1.10.1 -->
+対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+
 [環境を選ぶ](../README.md#起動方法) ／ [資料一覧](README.md)
 
 UbuntuなどのDocker EngineとComposeで使う手順です。NAS上のUbuntu VMもこちらです。
@@ -66,7 +69,7 @@ grep '^VERSION=' update.sh
 ```
 
 **確認：** 現在の場所がmydns-updater-dockerで、指定した4ファイルとlib内の6ファイルが表示されます。
-バージョンは `1.10.0` です。
+バージョンは `1.10.1` です。
 ZIPで取得済みなら、その中身を置いたフォルダーへ移動して同じ一式を確認します。
 
 <details>
@@ -151,7 +154,7 @@ sudo docker compose ps
 sudo docker compose logs --tail 50
 ```
 
-**確認：** 起動ログのバージョンと各アカウントの `MyDNS update: OK` を確認します。
+**確認：** 最新のSTARTUPが取得した版と同じ `v1.10.1` で、各アカウントの `MyDNS update: OK` を確認します。
 健康状態は次の4-2で確認します。
 
 通知成功の記録も確認します。
@@ -213,7 +216,7 @@ sudo systemctl stop mydns-updater-docker-recovery.timer mydns-updater-docker-rec
 sudo docker compose stop
 ```
 
-同じv1.10.0のupdate.sh・libフォルダー全体・compose.yamlを上書きします。設定例を実設定へコピーしません。
+同じv1.10.1のupdate.sh・libフォルダー全体・compose.yamlを上書きします。設定例を実設定へコピーしません。
 v1.9.0からの更新ではlibの読み込み設定が増えるため、停止したコンテナの開始だけでは足りません。
 次で配置を確認し、コンテナを再作成します。
 
@@ -224,7 +227,7 @@ grep '^VERSION=' update.sh
 sudo docker compose config --quiet
 ```
 
-update.sh・lib内の6ファイル・compose.yamlが表示され、版が1.10.0、最後の構文確認でエラーがなければ続けます。
+update.sh・lib内の6ファイル・compose.yamlが表示され、版が1.10.1、最後の構文確認でエラーがなければ続けます。
 
 ```sh
 sudo docker compose up -d --force-recreate
@@ -232,7 +235,7 @@ sudo docker compose logs --tail 50
 sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}}' mydns-updater
 ```
 
-起動バージョンが1.10.0で、設定エラーがなく、30〜60秒後に再確認して `running healthy` になれば成功です。
+起動バージョンが1.10.1で、設定エラーがなく、30〜60秒後に再確認して `running healthy` になれば成功です。
 stateを引き継ぐため、通知期限前は更新成功ログが増えなくても構いません。
 
 **自動復帰を最初に止めた場合だけ：** 確認後に `sudo systemctl start mydns-updater-docker-recovery.timer` で再開します。

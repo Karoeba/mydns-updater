@@ -1,5 +1,8 @@
 # Linuxの動作確認手順
 
+<!-- current-version: 1.10.1 -->
+対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+
 [資料一覧](README.md) ／ [Linux導入手順](linux.md) ／ [模擬テストの説明](testing.md)
 
 **この資料は、実アカウントを設定して起動した後の詳しい確認です。**
@@ -41,7 +44,7 @@ sudo ls -l /var/lib/mydns-updater/state.conf
 sudo -u mydns-updater env MYDNS_HEALTH_FILE=/run/mydns-updater/health sh /usr/local/lib/mydns-updater/update.sh --healthcheck
 ```
 
-**成功：** 起動ログがv1.10.0、CHECKが約1分間隔、state.confが存在し、HEALTHYと表示されます。
+**成功：** 起動ログがv1.10.1、CHECKが約1分間隔、state.confが存在し、HEALTHYと表示されます。
 各アカウントの通知成功は `MyDNS update: OK` で確認します。
 既存stateを引き継いだ場合は、通知期限前のSKIPは正常です。手順2の定期通知まで確認します。
 
