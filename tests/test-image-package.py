@@ -99,7 +99,9 @@ printf 200
                     time.sleep(1)
                 else:
                     raise AssertionError('healthcheck did not become healthy')
-                assert state_file.read_bytes() == original_state
+                # Production writes state with root-only permissions. Read through
+                # the container instead of weakening the file for the host test user.
+                assert subprocess.check_output(['docker', 'exec', container, 'cat', '/state/state.conf']) == original_state
                 assert {p.name: p.read_bytes() for p in config.iterdir()} == original_config
                 return container
 
