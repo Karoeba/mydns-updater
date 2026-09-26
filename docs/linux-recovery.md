@@ -1,5 +1,8 @@
 # Linuxで自動復帰を有効にする
 
+<!-- current-version: 1.10.1 -->
+対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+
 この機能はv1.8.0で追加したLinux直接実行向けの機能です。初期状態では無効です。
 先に [Linux導入手順](linux.md) で通常の更新とヘルスチェックが動くことを確認してください。
 
@@ -64,7 +67,7 @@ Docker版を導入していても、Linux直接実行版のサービスが用意
 
 ## 1. 配布ファイルを確認する
 
-以下はLinux側で実行します。開発中の版を試す場合は、GitHubで対象PRのブランチを選んで取得してください。mainにまだ入っていない変更もあるため、バージョンを確認します。
+以下はLinux側で実行します。v1.10.1はmainから取得できます。通常導入と同じ一式を使い、古い試験フォルダーを流用する場合は版を確認してください。
 展開したフォルダーの直下へ移動してから確認します。
 
 ```sh
@@ -73,7 +76,7 @@ ls update.sh lib/*.sh health-recover.sh deploy/linux/mydns-updater.service deplo
 grep '^VERSION=' update.sh
 ```
 
-5つのファイルとlib内の6ファイルが表示され、バージョンが `1.10.0` であることを確認します。
+5つのファイルとlib内の6ファイルが表示され、バージョンが `1.10.1` であることを確認します。
 `No such file or directory` が出た場合は、今いるフォルダーや取得した版を確認してください。
 
 ## 追加するファイルの配置
@@ -121,11 +124,12 @@ sudo systemctl start mydns-updater
 ```sh
 ls -l /usr/local/lib/mydns-updater/lib/*.sh /usr/local/lib/mydns-updater/health-recover.sh /etc/systemd/system/mydns-updater-recovery.service /etc/systemd/system/mydns-updater-recovery.timer
 sudo systemctl status mydns-updater --no-pager
+sudo journalctl -u mydns-updater -n 30 --no-pager
 sudo -u mydns-updater env MYDNS_HEALTH_FILE=/run/mydns-updater/health sh /usr/local/lib/mydns-updater/update.sh --healthcheck
 ```
 
 ファイルの所有者・グループが `root root`、権限が `-rw-r--r--` であること、
-サービスが `active (running)`、確認結果が `HEALTHY: updater progressing or waiting` であることを確認します。
+最新のSTARTUPが `v1.10.1`、サービスが `active (running)`、確認結果が `HEALTHY: updater progressing or waiting` であることを確認します。
 
 サービスの再起動操作には管理者権限が必要なため、自動復帰サービスはrootで動きます。
 更新処理とヘルスチェックの判定は、引き続き専用ユーザーで実行します。

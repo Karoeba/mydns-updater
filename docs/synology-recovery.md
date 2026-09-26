@@ -1,5 +1,8 @@
 # Synologyの自動復帰を設定する
 
+<!-- current-version: 1.10.1 -->
+対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+
 [Synologyの導入・運用](synology.md) ／ [共通の条件とログの意味](docker-recovery.md)
 
 NAS本体のSSHとDSMを使います。以下ではボリュームをvolume1、コンテナ名をmydns-updaterとしています。
@@ -82,9 +85,10 @@ NASのSSHで次を実行し、作業場所を確認します。
 cd /volume1/docker/mydns-recovery-check
 pwd
 ls -l update.sh lib/*.sh docker-health-recover.sh tests/test-docker-recovery-integration.sh
+grep '^VERSION=' update.sh
 ```
 
-3ファイルとlib内の6ファイルが表示されたら、[試験専用コンテナでの確認](docker-recovery.md#本番導入前に組み合わせを試す)を行います。
+3ファイルとlib内の6ファイルが表示され、版が1.10.1なら、[試験専用コンテナでの確認](docker-recovery.md#本番導入前に組み合わせを試す)を行います。
 この自動復帰の組み合わせ試験を同じ版・同じNASですでに済ませた場合は繰り返さず、次へ進みます。
 Container Managerでの模擬テストだけを終えた場合は、ここで組み合わせ試験も行います。
 リンク先で成功表示と終了コード0を確認したら、このページへ戻ります。
@@ -92,15 +96,16 @@ Container Managerでの模擬テストだけを終えた場合は、ここで組
 
 ### 通常運用のコンテナを確認する
 
-本番が古い版の場合だけ、[Synologyの更新手順](synology.md#更新する場合)でプログラム一式をv1.10.0にします。
-すでにv1.10.0の通常導入を終えている場合は、再作成せず起動ログを確認します。
+本番が古い版の場合だけ、[Synologyの更新手順](synology.md#更新する場合)でプログラム一式をv1.10.1にします。
+すでにv1.10.1の通常導入を終えている場合は、再作成せず起動ログを確認します。
 configとstateは保持します。v1.10.0ではlibの配置とComposeの変更があるため、更新手順に従って再作成します。
 
 ```sh
 sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}} {{.HostConfig.RestartPolicy.Name}}' mydns-updater
+sudo docker logs --tail 50 mydns-updater
 ```
 
-`running healthy unless-stopped` なら進めます。
+最新のSTARTUPが `v1.10.1` で、`running healthy unless-stopped` なら進めます。
 
 
 ## 1. NASにファイルを配置する
@@ -233,6 +238,7 @@ NAS本体へSSH接続した画面で実行します。
 
 ```sh
 sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}} {{.HostConfig.RestartPolicy.Name}}' mydns-updater
+sudo docker logs --tail 50 mydns-updater
 sudo /bin/sh /volume1/docker/mydns-recovery/run.sh --status
 ```
 

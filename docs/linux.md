@@ -1,5 +1,8 @@
 # Linuxで直接実行する（Dockerなし）
 
+<!-- current-version: 1.10.1 -->
+対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+
 [環境を選ぶ](../README.md#起動方法) ／ [資料一覧](README.md)
 
 Dockerを使わず、update.shとlibをLinux上で動かします。
@@ -199,7 +202,7 @@ sudo install -d -o mydns-updater -g mydns-updater -m 700 /var/lib/mydns-updater
 エラーがなければ配置先を確認します。コピー時に何も表示されないのは正常です。
 
 ```sh
-ls -l /usr/local/lib/mydns-updater/update.sh /usr/local/lib/mydns-updater/lib/*.sh
+ls -l /usr/local/lib/mydns-updater/update.sh /usr/local/lib/mydns-updater/lib/*.sh /usr/local/lib/mydns-updater/health-recover.sh
 sudo ls -ld /etc/mydns-updater /var/lib/mydns-updater
 ```
 
@@ -518,11 +521,11 @@ update.shとlibに加え、Linux自動復帰用のhealth-recover.shも同じ版�
 
 ```sh
 pwd
-ls update.sh lib/*.sh
+ls update.sh lib/*.sh health-recover.sh
 grep '^VERSION=' update.sh
 ```
 
-update.shとlib内の6ファイルが表示され、版が1.10.1なら続けます。
+update.sh・lib内の6ファイル・health-recover.shが表示され、版が1.10.1なら続けます。
 
 **自動復帰を設定済みの場合だけ：** 次で一時的に止め、実行中の確認処理の終了を待ちます。
 
@@ -539,14 +542,14 @@ sudo install -o root -g root -m 644 update.sh /usr/local/lib/mydns-updater/updat
 sudo install -d -o root -g root -m 755 /usr/local/lib/mydns-updater/lib
 sudo install -o root -g root -m 644 lib/*.sh /usr/local/lib/mydns-updater/lib/
 sudo install -o root -g root -m 644 health-recover.sh /usr/local/lib/mydns-updater/health-recover.sh
-ls -l /usr/local/lib/mydns-updater/update.sh /usr/local/lib/mydns-updater/lib/*.sh
+ls -l /usr/local/lib/mydns-updater/update.sh /usr/local/lib/mydns-updater/lib/*.sh /usr/local/lib/mydns-updater/health-recover.sh
 sudo systemctl start mydns-updater
 sudo systemctl status mydns-updater --no-pager
 sudo journalctl -u mydns-updater -n 30 --no-pager
 sudo -u mydns-updater env MYDNS_HEALTH_FILE=/run/mydns-updater/health sh /usr/local/lib/mydns-updater/update.sh --healthcheck
 ```
 
-7ファイルが配置され、起動ログがv1.10.1、状態が `active (running)`、ヘルスチェックが `HEALTHY` なら成功です。
+8ファイルが配置され、起動ログがv1.10.1、状態が `active (running)`、ヘルスチェックが `HEALTHY` なら成功です。
 起動直後で判定待ちの場合は、少し待って最後の確認コマンドだけを再実行します。
 stateを引き継ぐため、IP不変・通知期限前は通知を見送ります。
 

@@ -10,6 +10,8 @@
 | 通常のDocker・Compose | [Dockerの手順](docker.md) | [systemdの設定と確認](docker-systemd-recovery.md) |
 | Linuxで直接実行（Dockerなし） | [Linuxの手順](linux.md) | [Linux直接実行の自動復帰](linux-recovery.md) |
 
+- [取得する版と更新時の確認](current-version.md)：mainから取得し、設定・状態・復帰履歴を保持して同じ版を起動するための共通確認。
+
 ## 通常導入と検証の順番
 
 最初は上の環境別の「導入・運用」を開きます。初回導入と更新はそこで分岐します。
@@ -67,3 +69,4 @@ Dockerの自動復帰の条件・回数制限・ログの意味は[共通の仕�
 ## 開発時のレビュー記録
 
 - [v1.10.0独立レビューへの対応](reference/review-4522c80.md)：指摘の判断、修正内容、既存利用への影響と検証範囲。
+
