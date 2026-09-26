@@ -1,7 +1,7 @@
 # Dockerの動作確認手順
 
-<!-- current-version: 1.10.1 -->
-対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+<!-- current-version: 1.11.0 -->
+対象版は **v1.11.0** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
 
 [資料一覧](README.md) ／ [Dockerの導入・運用](docker.md) ／ [テストの説明](testing.md)
 
@@ -39,7 +39,7 @@ ls -l compose.yaml update.sh lib/*.sh
 grep '^VERSION=' update.sh
 ```
 
-**確認：** 場所がmydns-updater-dockerで、update.sh・compose.yaml・lib内の6ファイルが表示され、版が1.10.1なら続けます。
+**確認：** 場所がmydns-updater-dockerで、update.sh・compose.yaml・lib内の6ファイルが表示され、版が1.11.0なら続けます。
 取得先を変えた場合はcdのパスを合わせます。
 見つからない場合は、別の場所へ設定を作らず、導入時の場所を確認してください。
 

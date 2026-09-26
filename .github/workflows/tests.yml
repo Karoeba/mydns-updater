@@ -35,6 +35,9 @@ jobs:
         shell: bash
         run: sh tests/test-config-reload.sh | tee tests/reports/config-reload.log
 
+      - name: Test packaged image and migration
+        run: python3 tests/test-image-package.py
+
       - name: Verify pipeline failure propagation
         shell: bash
         run: |
@@ -201,6 +204,8 @@ jobs:
           docker cp tests/test-docker-cooperative-recovery.sh "$cid":/opt/probe.sh
           docker cp update.sh "$cid":/opt/update.sh
           docker cp lib "$cid":/opt/lib
+          docker cp Dockerfile "$cid":/opt/Dockerfile
+          docker cp .dockerignore "$cid":/opt/.dockerignore
           docker exec -e GITHUB_ACTIONS=true "$cid" sh /opt/probe.sh
           docker exec "$cid" mkdir -p /opt/tests
           docker cp tests/test-docker-recovery-integration.sh "$cid":/opt/tests/integration.sh

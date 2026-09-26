@@ -10,7 +10,8 @@
 | 通常のDocker・Compose | [Dockerの手順](docker.md) | [systemdの設定と確認](docker-systemd-recovery.md) |
 | Linuxで直接実行（Dockerなし） | [Linuxの手順](linux.md) | [Linux直接実行の自動復帰](linux-recovery.md) |
 
-- [取得する版と更新時の確認](current-version.md)：mainから取得し、設定・状態・復帰履歴を保持して同じ版を起動するための共通確認。
+- [取得する版と更新時の確認](current-version.md)：試験ブランチを取得し、設定・状態・復帰履歴を保持して同じ版を起動するための共通確認。
+- [イメージ格納方式への移行](image-migration.md)：Docker・Synologyの再構築、起動確認、問題時の切り戻し。
 
 ## 通常導入と検証の順番
 

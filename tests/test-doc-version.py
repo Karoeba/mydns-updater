@@ -9,6 +9,13 @@ PAGES = ['current-version', 'docker', 'synology', 'linux', 'docker-recovery',
 
 def check(texts, version):
     errors = []
+    expected_branch = 'v1.11.0-image-package'
+    for page in ['current-version', 'docker', 'linux']:
+        if f'--branch {expected_branch} --single-branch' not in texts[f'docs/{page}.md']:
+            errors.append(f'{page}: acquisition branch differs from trial target')
+    for page in ['current-version', 'synology', 'synology-recovery']:
+        if f'refs/heads/{expected_branch}.zip' not in texts[f'docs/{page}.md']:
+            errors.append(f'{page}: acquisition ZIP differs from trial target')
     if 'まだmainにありません' in texts['README.md'] or 'review-fixes-v1.10.1ブランチを取得' in texts['README.md']:
         errors.append('README: stale unmerged instruction')
     for page in PAGES:

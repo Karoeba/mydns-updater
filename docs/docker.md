@@ -1,7 +1,7 @@
 # 通常のDocker・Composeで使う
 
-<!-- current-version: 1.10.1 -->
-対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+<!-- current-version: 1.11.0 -->
+対象版は **v1.11.0** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
 
 [環境を選ぶ](../README.md#起動方法) ／ [資料一覧](README.md)
 
@@ -29,6 +29,7 @@ Linux直接実行版のように/etcなどへコピーする手順ではあり�
 
 ```text
 ~/mydns-updater-docker/
+├── .dockerignore              ← 設定などを構築対象から除外
 ├── Dockerfile
 ├── compose.yaml
 ├── update.sh
@@ -47,29 +48,29 @@ Linux直接実行版のように/etcなどへコピーする手順ではあり�
 
 | Linux側の場所 | コンテナ内で見える場所 | 用途 |
 | --- | --- | --- |
-| update.sh | /app/update.sh | 起動用プログラム。読み取り専用 |
-| lib/ | /app/lib/ | 機能ごとの処理。読み取り専用 |
+| update.sh | /app/update.sh | 構築時にイメージへ格納 |
+| lib/ | /app/lib/ | 構築時にイメージへ格納 |
 | config/ | /config/ | 実際の設定。読み取り専用 |
 | state/ | /state/ | 成功記録。書き込み可能 |
 
-表はDockerが対応付ける場所を示しています。コンテナ内へ手作業でコピーする必要はありません。
+プログラムはイメージに含まれ、configとstateだけを外部フォルダーに対応付けます。コンテナ内へ手作業でコピーする必要はありません。
 通常運用は直下のcompose.yaml、模擬テストはtests内のcompose.yamlを使います。
 
 ## 1. 作業フォルダーを用意する
 
-mainのプログラム一式を、新しい作業フォルダーへ取得します。
+v1.11.0-image-packageのプログラム一式を、新しい作業フォルダーへ取得します。
 同名フォルダーがすでにある場合は取得を繰り返さず、中身を確認します。
 
 ```sh
-git clone --branch main --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
+git clone --branch v1.11.0-image-package --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
 cd mydns-updater-docker
 pwd
-ls -l compose.yaml update.sh lib/*.sh mydns.conf.example accounts.conf.example
+ls -l Dockerfile .dockerignore compose.yaml update.sh lib/*.sh mydns.conf.example accounts.conf.example
 grep '^VERSION=' update.sh
 ```
 
-**確認：** 現在の場所がmydns-updater-dockerで、指定した4ファイルとlib内の6ファイルが表示されます。
-バージョンは `1.10.1` です。
+**確認：** 現在の場所がmydns-updater-dockerで、指定した6ファイルとlib内の6ファイルが表示されます。
+バージョンは `1.11.0` です。
 ZIPで取得済みなら、その中身を置いたフォルダーへ移動して同じ一式を確認します。
 
 <details>
@@ -154,7 +155,7 @@ sudo docker compose ps
 sudo docker compose logs --tail 50
 ```
 
-**確認：** 最新のSTARTUPが取得した版と同じ `v1.10.1` で、各アカウントの `MyDNS update: OK` を確認します。
+**確認：** 最新のSTARTUPが取得した版と同じ `v1.11.0` で、各アカウントの `MyDNS update: OK` を確認します。
 健康状態は次の4-2で確認します。
 
 通知成功の記録も確認します。
@@ -203,45 +204,9 @@ healthyは処理の進行を示すもので、MyDNS.JPへの通知成功とは�
 
 ## 更新する場合
 
-[旧版からの変更点](../README.md#更新方法)を確認し、configとstateをバックアップします。
-自動復帰を設定済みの場合だけ、先に [Docker自動復帰タイマー](docker-systemd-recovery.md) を止めます。
-
-```sh
-sudo systemctl stop mydns-updater-docker-recovery.timer mydns-updater-docker-recovery.service
-```
-
-自動復帰を使っていない場合は上の操作を飛ばします。次に、compose.yamlがある場所で更新コンテナを停止します。
-
-```sh
-sudo docker compose stop
-```
-
-同じv1.10.1のupdate.sh・libフォルダー全体・compose.yamlを上書きします。設定例を実設定へコピーしません。
-v1.9.0からの更新ではlibの読み込み設定が増えるため、停止したコンテナの開始だけでは足りません。
-次で配置を確認し、コンテナを再作成します。
-
-```sh
-pwd
-ls -l update.sh lib/*.sh compose.yaml
-grep '^VERSION=' update.sh
-sudo docker compose config --quiet
-```
-
-update.sh・lib内の6ファイル・compose.yamlが表示され、版が1.10.1、最後の構文確認でエラーがなければ続けます。
-
-```sh
-sudo docker compose up -d --force-recreate
-sudo docker compose logs --tail 50
-sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}}' mydns-updater
-```
-
-起動バージョンが1.10.1で、設定エラーがなく、30〜60秒後に再確認して `running healthy` になれば成功です。
-stateを引き継ぐため、通知期限前は更新成功ログが増えなくても構いません。
-
-**自動復帰を最初に止めた場合だけ：** 確認後に `sudo systemctl start mydns-updater-docker-recovery.timer` で再開します。
-
-Dockerfileや依存ソフトも変更した場合だけ、再作成コマンドに `--build` を追加します。
-configとstateを削除する必要はありません。
+[イメージ格納方式への移行・更新](image-migration.md)の共通準備と「通常のDocker」を実行します。
+v1.10.1以前からはプログラムのマウント削除、v1.11.0以降も毎回イメージの再構築・再作成が必要です。
+設定・state・復帰履歴は保持し、通知期限前のSKIPは正常です。
 
 ## 詳しい動作確認と自動復帰
 

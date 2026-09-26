@@ -103,7 +103,7 @@ printf '追加テストの終了コード: %s\n' "$test_result"
 
 #### 1. PCでZIPを取得し、NASへ配置する
 
-1. [mainのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/main.zip)をPCへダウンロードして展開します。
+1. [v1.11.0の試験用ZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.11.0-image-package.zip)をPCへダウンロードして展開します。
 2. 展開したフォルダーを開き、update.shがある階層まで進みます。update.sh・Dockerfile・lib・testsなどが入っています。
 3. File Stationで共有フォルダー `docker` を開き、その中に `mydns-recovery-check` フォルダーを作ります。
 4. 展開したフォルダーの**中身をすべて**、`docker/mydns-recovery-check` へアップロードします。
@@ -208,6 +208,12 @@ UbuntuのDockerコマンドラインで導入から試す場合は [Dockerの動
 Linuxでの異常・復旧、停止連動、OS再起動、結果保存は [Linuxの動作確認手順](linux-testing.md) を参照してください。
 
 現行導入資料の対象版と成功判定は `python3 tests/test-doc-version.py` で検査します。update.shのVERSIONと照合し、過去の検証記録・変更履歴は対象外にします。CIの文書シェル構文検査と合わせて実行します。
+
+### v1.11.0の確認範囲
+
+プログラムを格納したイメージで設定再読み込み・ヘルスチェック・自動復帰を試験します。
+tests/test-image-package.pyでは格納コードの一致、実設定などの除外、旧マウント方式からの移行・切り戻し、設定・state保持、通知期限前の重複通知抑止を確認します。
+Linux直接実行の既存回帰試験も継続します。実機でのv1.11.0移行とARMは未確認です。以下の旧版の実機記録とは区別します。
 
 ### v1.10.1の確認範囲
 
