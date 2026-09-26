@@ -249,7 +249,7 @@ Linux直接実行版は同じ共通コードを引き続き所定の場所へ配
 同じ版のupdate.shとlib全体を配置します。Linuxの自動復帰を利用している場合はhealth-recover.shも更新します。
 設定・state.conf・復帰履歴statusは引き継ぎ、初期化しません。新しいdiagnosticは自動生成されます。
 FORCE_UPDATE_INTERVALが259200秒を超える既存設定と、.curlrcへの依存は、上の設定・通信応答の説明に従って見直してください。
-v1.10.1の修正はmainへマージ済みです。試験ブランチへ切り替える必要はありません。[取得する版と更新時の確認](docs/current-version.md)に従い、同じ一式を取得・配置し、起動ログまで確認してください。
+v1.10.1の修正はmainへマージ済みです。v1.11.0を試す場合の取得先は[取得する版と更新時の確認](docs/current-version.md)を参照してください。
 
 ### v1.9.0からの更新
 
@@ -277,7 +277,7 @@ Docker・Synologyの動作とCompose設定は同じです。Linuxで定期監視
 
 設定とstateを保持し、`update.sh` と `compose.yaml` を更新してコンテナを再作成します。Healthcheck設定の追加は、スクリプトの上書きと再起動だけでは反映されません。
 
-Container Managerではプロジェクトで使用中のYAMLにも変更を反映してください。Dockerfileの変更はないため、イメージの再構築は不要です。
+Container Managerではプロジェクトで使用中のYAMLにも変更を反映してください。v1.6.0への更新ではDockerfileの変更はありませんでしたが、v1.11.0へ更新する場合は再構築が必要です。
 
 ### v1.4.0からの更新
 

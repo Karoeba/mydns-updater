@@ -35,7 +35,7 @@ def main():
             shutil.copytree(ROOT/'lib', context/'lib')
             canary = 'PRIVATE-FIXTURE-' + uuid.uuid4().hex
             for name in ['config/accounts.conf', 'state/state.conf', 'recovery/status',
-                         '.env', 'accounts.conf.example', 'lib/private.txt', 'tests/private.txt']:
+                         '.env', 'accounts.conf.example', 'lib/private.txt', 'lib/private.sh', 'lib/nested/private.txt', 'tests/private.txt']:
                 path = context/name
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(canary)

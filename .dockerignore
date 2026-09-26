@@ -1,6 +1,11 @@
-*
+**
 !Dockerfile
 !.dockerignore
 !update.sh
 !lib/
-!lib/*.sh
+!lib/config.sh
+!lib/diagnostics.sh
+!lib/health.sh
+!lib/network.sh
+!lib/runtime.sh
+!lib/state.sh
