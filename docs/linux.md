@@ -1,7 +1,7 @@
 # Linuxで直接実行する（Dockerなし）
 
-<!-- current-version: 1.10.1 -->
-対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+<!-- current-version: 1.11.0 -->
+対象版は **v1.11.0** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
 
 [環境を選ぶ](../README.md#起動方法) ／ [資料一覧](README.md)
 
@@ -102,7 +102,7 @@ sudo apt install curl ca-certificates tzdata git nano util-linux coreutils
 ### まだ取得していない場合だけ
 
 ```sh
-git clone --branch main --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater
+git clone --branch v1.11.0-image-package --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater
 cd mydns-updater
 ```
 
@@ -116,7 +116,7 @@ grep '^VERSION=' update.sh
 git rev-parse HEAD
 ```
 
-**確認：** update.sh、lib内の6ファイル、サービス設定が表示され、版が `1.10.1` であることを確認します。
+**確認：** update.sh、lib内の6ファイル、サービス設定が表示され、版が `1.11.0` であることを確認します。
 最後の長い文字列は試したコードの識別番号です。控えておきます。
 ZIPで取得した場合はgitのコマンドを省略し、ZIP名と取得元を控えます。
 
@@ -259,7 +259,7 @@ sudo ls -l /var/lib/mydns-updater/state.conf
 
 **成功：** 次の3点を確認します。
 
-- 状態が `active (running)`、起動ログが `v1.10.1`。
+- 状態が `active (running)`、起動ログが `v1.11.0`。
 - 設定した各アカウントに `MyDNS update: OK` がある。
 - state.confが作成されている。
 
@@ -513,11 +513,11 @@ MYDNS_CONFIG_DIR=/etc/mydns-updater MYDNS_STATE_DIR=/var/lib/mydns-updater sh /u
 
 ## 更新方法
 
-### v1.9.0以降からv1.10.1へ更新する
+### v1.9.0以降からv1.11.0へ更新する
 
 状態ファイル・サービス定義は維持します。通知間隔の上限とcurl設定の扱いは[更新時の変更点](../README.md#v1100からv1101への更新)を先に確認してください。
 update.shとlibに加え、Linux自動復帰用のhealth-recover.shも同じ版で配置します。配置だけで自動復帰が有効になることはありません。
-設定と状態をバックアップし、取得したv1.10.1のフォルダーで次を実行します。
+設定と状態をバックアップし、取得したv1.11.0のフォルダーで次を実行します。
 
 ```sh
 pwd
@@ -525,7 +525,7 @@ ls update.sh lib/*.sh health-recover.sh
 grep '^VERSION=' update.sh
 ```
 
-update.sh・lib内の6ファイル・health-recover.shが表示され、版が1.10.1なら続けます。
+update.sh・lib内の6ファイル・health-recover.shが表示され、版が1.11.0なら続けます。
 
 **自動復帰を設定済みの場合だけ：** 次で一時的に止め、実行中の確認処理の終了を待ちます。
 
@@ -549,7 +549,7 @@ sudo journalctl -u mydns-updater -n 30 --no-pager
 sudo -u mydns-updater env MYDNS_HEALTH_FILE=/run/mydns-updater/health sh /usr/local/lib/mydns-updater/update.sh --healthcheck
 ```
 
-8ファイルが配置され、起動ログがv1.10.1、状態が `active (running)`、ヘルスチェックが `HEALTHY` なら成功です。
+8ファイルが配置され、起動ログがv1.11.0、状態が `active (running)`、ヘルスチェックが `HEALTHY` なら成功です。
 起動直後で判定待ちの場合は、少し待って最後の確認コマンドだけを再実行します。
 stateを引き継ぐため、IP不変・通知期限前は通知を見送ります。
 

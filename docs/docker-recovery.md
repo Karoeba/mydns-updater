@@ -1,7 +1,7 @@
 # Dockerの自動復帰：共通の仕組み
 
-<!-- current-version: 1.10.1 -->
-対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+<!-- current-version: 1.11.0 -->
+対象版は **v1.11.0** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
 
 [資料一覧](README.md)
 
@@ -42,7 +42,7 @@ Dockerが表示するunhealthyをさらに3回数えるのではなく、毎回�
 
 ## 本番導入前に組み合わせを試す
 
-取得したv1.10.1の作業フォルダーで実行します。SynologyではNASへSSH接続した端末、UbuntuではUbuntu側の端末です。
+取得したv1.11.0の作業フォルダーで実行します。SynologyではNASへSSH接続した端末、UbuntuではUbuntu側の端末です。
 本番のconfigとstateをコピーする必要はありません。本番コンテナは動かしたままで構いません。
 
 ```sh

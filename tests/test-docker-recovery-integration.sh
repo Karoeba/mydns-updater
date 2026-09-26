@@ -11,21 +11,20 @@ case "$DOCKER_BIN" in /*) ;; *) echo 'Docker unavailable'; exit 1 ;; esac
 docker() { "$DOCKER_BIN" --host unix:///var/run/docker.sock "$@"; }
 ROOT="$(CDPATH= cd -- "$(dirname "$0")/.." && pwd)"
 TASK="$(mktemp -d)"; ID=""
+IMAGE="mydns-recovery-image-test:$(basename "$TASK" | tr '[:upper:]' '[:lower:]')"
 cleanup() {
     [ -z "$ID" ] || docker rm -f "$ID" >/dev/null 2>&1 || :
+    docker image rm "$IMAGE" >/dev/null 2>&1 || :
     rm -rf "$TASK"
 }
 trap cleanup 0
 trap 'exit 1' INT TERM
 mkdir -p "$TASK/state" "$TASK/bin"
 export MYDNS_DOCKER_BIN="$DOCKER_BIN" MYDNS_RECOVERY_DIR="$TASK/state" FIXTURE="$TASK"
+docker build -t "$IMAGE" "$ROOT"
 ID="$(docker create --network none --restart unless-stopped \
-    --label mydns.test=docker-recovery-policy alpine:3.23 sh /app/update.sh)"
+    --label mydns.test=docker-recovery-policy "$IMAGE")"
 export MYDNS_RECOVERY_CONTAINER="$ID"
-mkdir -p "$TASK/app"
-cp "$ROOT/update.sh" "$TASK/app/update.sh"
-cp -R "$ROOT/lib" "$TASK/app/lib"
-docker cp "$TASK/app" "$ID":/app
 docker start "$ID" >/dev/null
 n=0
 until docker exec "$ID" sh /app/update.sh --healthcheck; do

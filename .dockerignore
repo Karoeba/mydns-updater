@@ -1,2 +1,6 @@
 *
 !Dockerfile
+!.dockerignore
+!update.sh
+!lib/
+!lib/*.sh

@@ -1,7 +1,7 @@
 # Synology Container Managerで使う
 
-<!-- current-version: 1.10.1 -->
-対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+<!-- current-version: 1.11.0 -->
+対象版は **v1.11.0** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
 
 [環境を選ぶ](../README.md#起動方法) ／ [資料一覧](README.md)
 
@@ -22,7 +22,7 @@ NAS本体のContainer Managerで使う手順です。NAS上のUbuntu VMにDocker
 ## 1. ファイルを用意する
 
 Container Managerが使えるNASで、使用する版のZIPをダウンロードして展開します。
-[mainのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/main.zip)からプログラム一式を取得できます。
+[v1.11.0の試験用ZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.11.0-image-package.zip)からプログラム一式を取得できます。
 
 File Stationで、共有フォルダー `docker` の中に `mydns-updater` を作り、展開した中身をアップロードします。
 フォルダー名にバージョンは入れません。ZIPの外側のフォルダーを重ねて入れないようにしてください。
@@ -32,6 +32,7 @@ File Stationで、共有フォルダー `docker` の中に `mydns-updater` を�
 
 ```text
 docker/mydns-updater/
+├── .dockerignore        # 隠しファイルも含めて配置
 ├── Dockerfile
 ├── compose.yaml
 ├── update.sh
@@ -52,12 +53,12 @@ ZIPの外側のフォルダーが余分に1段入っていなければ、次へ�
 
 | NAS上の場所 | コンテナ内で見える場所 |
 | --- | --- |
-| update.sh | /app/update.sh |
-| lib/ | /app/lib/ |
+| update.sh（構築時に格納） | /app/update.sh |
+| lib/（構築時に格納） | /app/lib/ |
 | config/ | /config/ |
 | state/ | /state/ |
 
-対応付けはComposeが行います。コンテナ内へ手作業でコピーする必要はありません。
+configとstateの対応付けはComposeが行います。update.shとlibはイメージの構築時に格納します。コンテナ内へ手作業でコピーする必要はありません。
 File Stationでは共有フォルダーdockerとして見えますが、SSHでは通常/volume1/dockerです。ボリュームが違う場合は実際の場所を使います。
 
 ## 2. 実アカウントを使わない模擬テスト
@@ -110,7 +111,7 @@ state.confは起動後に生成されるため、手作業で作りません。
 
 コンテナmydns-updaterの「ログ」を開きます。
 
-- `STARTUP`：最新の起動日時と `v1.10.1` を確認します。
+- `STARTUP`：最新の起動日時と `v1.11.0` を確認します。
 - 各アカウントの `MyDNS update: OK`：MyDNS.JPへの通知成功です。
 - File Stationの `state/state.conf`：通知成功の記録が生成されます。
 
@@ -168,20 +169,9 @@ File Stationなどで、使用中のconfig内の設定ファイルを編集・�
 
 ## 更新する場合
 
-1. [使用中の版からの変更点](../README.md#更新方法)を確認します。
-2. 自動復帰を設定済みの場合だけ、DSMのタスクスケジューラで該当タスクの有効チェックを外し、適用します。実行中の処理が終わってから続けます。
-3. configとstateをバックアップし、Container Managerでプロジェクトを停止します。
-4. 同じv1.10.1のupdate.sh・libフォルダー全体・compose.yamlを上書きします。設定例を実設定へ上書きしません。
-5. 上の配置図と照合し、lib内に6つの.shファイルがあることを確認します。
-6. プロジェクトで使用中のYAMLにも `./lib:/app/lib:ro` があることを確認します。プロジェクトの「クリーンアップ」後に「構築」でコンテナを再作成・開始します。config・stateやプロジェクトの保存フォルダーは削除しません。
-7. 起動ログがv1.10.1で、健康状態が「正常」、設定エラーがないことを確認します。
-8. 手順2で自動復帰を止めた場合だけ、有効チェックを戻して適用し、[定期実行の確認](synology-recovery.md#4-定期実行を確認する)を行います。
-
-**v1.9.0からの更新ではComposeの変更があるため、停止・開始だけでは反映されません。**
-保存名がdocker-compose.ymlになっている場合もあるため、使用中のファイルを確認します。
-Dockerfileや依存ソフトの変更がある場合はイメージも再構築します。
-
-configとstateは保持します。イメージ名の `mydns-updater:local` はそのままで、実行バージョンは起動ログで確認します。
+[イメージ格納方式への移行・更新](image-migration.md)の共通準備と「Synology Container Manager」を実行します。
+ファイルの上書きと停止・開始だけでは反映されません。使用中のYAMLで旧プログラムのマウントを外し、イメージを再構築してからコンテナを再作成します。
+config・state・監視用フォルダー・DSMタスクは保持します。
 
 ## 自動復帰を追加する場合
 

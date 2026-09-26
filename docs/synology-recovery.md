@@ -1,7 +1,7 @@
 # Synologyの自動復帰を設定する
 
-<!-- current-version: 1.10.1 -->
-対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+<!-- current-version: 1.11.0 -->
+対象版は **v1.11.0** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
 
 [Synologyの導入・運用](synology.md) ／ [共通の条件とログの意味](docker-recovery.md)
 
@@ -36,7 +36,7 @@ mydns-updater/stateの通知成功記録を、mydns-recovery/stateへコピー�
 
 ### PCで入手し、File Stationで置く
 
-1. [mainのZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/main.zip)をPCへダウンロードし、展開します。
+1. [v1.11.0の試験用ZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.11.0-image-package.zip)をPCへダウンロードし、展開します。
 2. 展開したフォルダーを開き、update.shがある階層まで進みます。
 3. File Stationで共有フォルダー `docker` の中に `mydns-recovery-check` を作ります。
 4. 展開フォルダーの**中身をすべて**、そこへアップロードします。
@@ -88,7 +88,7 @@ ls -l update.sh lib/*.sh docker-health-recover.sh tests/test-docker-recovery-int
 grep '^VERSION=' update.sh
 ```
 
-3ファイルとlib内の6ファイルが表示され、版が1.10.1なら、[試験専用コンテナでの確認](docker-recovery.md#本番導入前に組み合わせを試す)を行います。
+3ファイルとlib内の6ファイルが表示され、版が1.11.0なら、[試験専用コンテナでの確認](docker-recovery.md#本番導入前に組み合わせを試す)を行います。
 この自動復帰の組み合わせ試験を同じ版・同じNASですでに済ませた場合は繰り返さず、次へ進みます。
 Container Managerでの模擬テストだけを終えた場合は、ここで組み合わせ試験も行います。
 リンク先で成功表示と終了コード0を確認したら、このページへ戻ります。
@@ -96,16 +96,16 @@ Container Managerでの模擬テストだけを終えた場合は、ここで組
 
 ### 通常運用のコンテナを確認する
 
-本番が古い版の場合だけ、[Synologyの更新手順](synology.md#更新する場合)でプログラム一式をv1.10.1にします。
-すでにv1.10.1の通常導入を終えている場合は、再作成せず起動ログを確認します。
-configとstateは保持します。v1.10.0ではlibの配置とComposeの変更があるため、更新手順に従って再作成します。
+本番が古い版の場合だけ、[Synologyの更新手順](synology.md#更新する場合)でプログラム一式をv1.11.0にします。
+すでにv1.11.0の通常導入を終えている場合は、再作成せず起動ログを確認します。
+configとstateは保持します。v1.11.0ではプログラムをイメージに含めるため、更新手順に従って再構築・再作成します。
 
 ```sh
 sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}} {{.HostConfig.RestartPolicy.Name}}' mydns-updater
 sudo docker logs --tail 50 mydns-updater
 ```
 
-最新のSTARTUPが `v1.10.1` で、`running healthy unless-stopped` なら進めます。
+最新のSTARTUPが `v1.11.0` で、`running healthy unless-stopped` なら進めます。
 
 
 ## 1. NASにファイルを配置する
