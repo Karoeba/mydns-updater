@@ -131,7 +131,7 @@ sudo systemctl is-active docker
 
 `active` ならDockerが動いています。別の表示なら `sudo systemctl status docker --no-pager` で内容を確認します。
 
-この例ではOS起動時にもDockerを起動します。試験コンテナを稼働させたままVMを再起動すると、コンテナ側の再起動ポリシーに応じて再開します。試験終了時は [Dockerの動作確認手順](../docker-testing.md) に沿って停止します。
+この例ではOS起動時にもDockerを起動します。試験コンテナを稼働させたままVMを再起動すると、コンテナ側の再起動ポリシーに応じて再開します。試験終了時は[試験コース](../test-start.md)の最後のページに沿って停止します。
 
 ## 4. 導入結果を確認する
 
@@ -154,6 +154,6 @@ sudo docker run --rm hello-world
 ## 5. ツールの導入と試験へ進む
 
 通常の導入は[Dockerの導入・運用](../docker.md)へ進みます。
-詳しく試す場合は[Dockerの動作確認](../docker-testing.md)、自動復帰を追加する場合は[Dockerの自動復帰](../docker-systemd-recovery.md)を選びます。
+開発中の試験は[試験コース](../test-start.md)でD1（監視のみ）かD2（自動復帰）を選び、新規導入から進めます。
 
 UbuntuへのDocker導入は環境準備です。MyDNS.JPへの通知成功を確認したことにはならないため、導入後の確認も行ってください。

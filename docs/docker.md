@@ -1,7 +1,7 @@
 # 通常のDocker・Composeで使う
 
-<!-- current-version: 1.10.1 -->
-対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+<!-- current-version: 1.11.0 -->
+対象版は **v1.11.0** です。始める前に[取得する版の確認](current-version.md)を確認してください。
 
 [環境を選ぶ](../README.md#起動方法) ／ [資料一覧](README.md)
 
@@ -12,6 +12,9 @@ NAS本体のContainer Managerで使う場合は[Synologyの手順](synology.md)�
 Docker未導入なら、先に[UbuntuへのDocker導入](reference/ubuntu-docker.md)を行います。
 
 ## 目的に合わせて進む
+
+開発中は[試験コース](test-start.md)を先に選びます。このページは新規導入と最初の模擬試験です。
+
 
 | 目的 | 進む順番 |
 | --- | --- |
@@ -29,6 +32,7 @@ Linux直接実行版のように/etcなどへコピーする手順ではあり�
 
 ```text
 ~/mydns-updater-docker/
+├── .dockerignore              ← 設定などを構築対象から除外
 ├── Dockerfile
 ├── compose.yaml
 ├── update.sh
@@ -47,29 +51,32 @@ Linux直接実行版のように/etcなどへコピーする手順ではあり�
 
 | Linux側の場所 | コンテナ内で見える場所 | 用途 |
 | --- | --- | --- |
-| update.sh | /app/update.sh | 起動用プログラム。読み取り専用 |
-| lib/ | /app/lib/ | 機能ごとの処理。読み取り専用 |
+| update.sh | /app/update.sh | 構築時にイメージへ格納 |
+| lib/ | /app/lib/ | 構築時にイメージへ格納 |
 | config/ | /config/ | 実際の設定。読み取り専用 |
 | state/ | /state/ | 成功記録。書き込み可能 |
 
-表はDockerが対応付ける場所を示しています。コンテナ内へ手作業でコピーする必要はありません。
+プログラムはイメージに含まれ、configとstateだけを外部フォルダーに対応付けます。コンテナ内へ手作業でコピーする必要はありません。
 通常運用は直下のcompose.yaml、模擬テストはtests内のcompose.yamlを使います。
 
 ## 1. 作業フォルダーを用意する
 
-mainのプログラム一式を、新しい作業フォルダーへ取得します。
+v1.11.0-image-packageのプログラム一式を、新しい作業フォルダーへ取得します。
 同名フォルダーがすでにある場合は取得を繰り返さず、中身を確認します。
 
 ```sh
-git clone --branch main --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
+sudo apt update
+sudo apt install git nano
+cd ~
+git clone --branch v1.11.0-image-package --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
 cd mydns-updater-docker
 pwd
-ls -l compose.yaml update.sh lib/*.sh mydns.conf.example accounts.conf.example
+ls -l Dockerfile .dockerignore compose.yaml update.sh lib/*.sh mydns.conf.example accounts.conf.example
 grep '^VERSION=' update.sh
 ```
 
-**確認：** 現在の場所がmydns-updater-dockerで、指定した4ファイルとlib内の6ファイルが表示されます。
-バージョンは `1.10.1` です。
+**確認：** 現在の場所がmydns-updater-dockerで、指定した6ファイルとlib内の6ファイルが表示されます。
+バージョンは `1.11.0` です。
 ZIPで取得済みなら、その中身を置いたフォルダーへ移動して同じ一式を確認します。
 
 <details>
@@ -90,10 +97,44 @@ ls compose.yaml
 
 ## 2. 実アカウントを使わない模擬テスト
 
-**開発版の検証では実施します。通常導入だけなら手順3へ進めます。**
-[Dockerの模擬テスト](testing.md#dockerのコマンドライン)を実行します。
-そのページの「終了コード0」と「ALL TESTS PASSED」を確認できたら、このページの手順3へ戻ります。
-実アカウントや本番のconfig・stateは使いません。NAS側の運用も止める必要はありません。
+開発中の試験ではここを実施し、成功を確認してから手順3へ進みます。
+
+
+
+展開したフォルダーの直下（ルートの `compose.yaml` がある場所）で実行します。Dockerへアクセスできる権限が必要です。Ubuntuの新規導入では `docker` コマンドの先頭に `sudo` を付けます。
+
+```sh
+mkdir -p tests/reports
+sudo docker compose -f tests/compose.yaml run --build --rm test
+test_result=$?
+printf '模擬テストの終了コード: %s\n' "$test_result"
+```
+
+模擬テスト中の外部通信は無効です。初回のイメージ取得など、構築には接続が必要です。
+
+結果は `tests/reports` に保存され、成功時は次の7種類の結果を表示して終了します。
+
+- `ALL TESTS PASSED (37 checks)`
+- `ALL DIAGNOSTIC TESTS PASSED (20 checks)`
+- `ALL SPLIT CONFIG TESTS PASSED (10 checks)`
+- `ALL LINUX TESTS PASSED (8 checks)`
+- `ALL HEALTHCHECK TESTS PASSED (11 checks)`
+- `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`
+- `ALL PROGRAM LAYOUT TESTS PASSED`
+
+終了コード0と、7種類すべての最後の結果を確認してください。同じ成功表示が複数回出ても正常です。
+実行中はログをファイルへためているため、しばらく表示が増えない場合があります。入力待ちへ戻るまで待ちます。`tests/reports/result.txt` の `ALL TESTS PASSED` も成功の目印です。構築エラー時に古いレポートが残っている場合があるため、今回の端末表示とファイルの更新日時も確認します。
+
+LinuxのDockerホストでは、設定の置き換え4項目とDockerの健康状態遷移3項目も追加で実行できます。
+
+```sh
+sudo sh tests/test-config-reload.sh
+test_result=$?
+printf '追加テストの終了コード: %s\n' "$test_result"
+```
+
+終了コード0で、成功時は `ALL CONFIG RELOAD TESTS PASSED (4 checks)` と `ALL DOCKER HEALTHCHECK TESTS PASSED (3 checks)` を表示します。実アカウントは使用しません。ヘルスチェックの待機・検査間隔を短縮し、期限切れも模擬的に作る試験です。
+
 
 ## 3. 実アカウントの設定を用意する
 
@@ -154,7 +195,7 @@ sudo docker compose ps
 sudo docker compose logs --tail 50
 ```
 
-**確認：** 最新のSTARTUPが取得した版と同じ `v1.10.1` で、各アカウントの `MyDNS update: OK` を確認します。
+**確認：** 最新のSTARTUPが取得した版と同じ `v1.11.0` で、各アカウントの `MyDNS update: OK` を確認します。
 健康状態は次の4-2で確認します。
 
 通知成功の記録も確認します。
@@ -203,49 +244,13 @@ healthyは処理の進行を示すもので、MyDNS.JPへの通知成功とは�
 
 ## 更新する場合
 
-[旧版からの変更点](../README.md#更新方法)を確認し、configとstateをバックアップします。
-自動復帰を設定済みの場合だけ、先に [Docker自動復帰タイマー](docker-systemd-recovery.md) を止めます。
-
-```sh
-sudo systemctl stop mydns-updater-docker-recovery.timer mydns-updater-docker-recovery.service
-```
-
-自動復帰を使っていない場合は上の操作を飛ばします。次に、compose.yamlがある場所で更新コンテナを停止します。
-
-```sh
-sudo docker compose stop
-```
-
-同じv1.10.1のupdate.sh・libフォルダー全体・compose.yamlを上書きします。設定例を実設定へコピーしません。
-v1.9.0からの更新ではlibの読み込み設定が増えるため、停止したコンテナの開始だけでは足りません。
-次で配置を確認し、コンテナを再作成します。
-
-```sh
-pwd
-ls -l update.sh lib/*.sh compose.yaml
-grep '^VERSION=' update.sh
-sudo docker compose config --quiet
-```
-
-update.sh・lib内の6ファイル・compose.yamlが表示され、版が1.10.1、最後の構文確認でエラーがなければ続けます。
-
-```sh
-sudo docker compose up -d --force-recreate
-sudo docker compose logs --tail 50
-sudo docker inspect --format '{{.State.Status}} {{.State.Health.Status}}' mydns-updater
-```
-
-起動バージョンが1.10.1で、設定エラーがなく、30〜60秒後に再確認して `running healthy` になれば成功です。
-stateを引き継ぐため、通知期限前は更新成功ログが増えなくても構いません。
-
-**自動復帰を最初に止めた場合だけ：** 確認後に `sudo systemctl start mydns-updater-docker-recovery.timer` で再開します。
-
-Dockerfileや依存ソフトも変更した場合だけ、再作成コマンドに `--build` を追加します。
-configとstateを削除する必要はありません。
+[イメージ格納方式への移行・更新](image-migration.md)の共通準備と「通常のDocker」を実行します。
+v1.10.1以前からはプログラムのマウント削除、v1.11.0以降も毎回イメージの再構築・再作成が必要です。
+設定・state・復帰履歴は保持し、通知期限前のSKIPは正常です。
 
 ## 詳しい動作確認と自動復帰
 
-通常動作・設定変更・異常表示を詳しく試す場合は[Dockerの動作確認](docker-testing.md)へ進みます。
+開発中の試験の順番は[試験コース](test-start.md)にまとめています。
 導入済みの設定を引き継ぎます。取得や初回設定のコピーを繰り返しません。
 
 自動復帰を使う場合は[通常のDockerの自動復帰手順](docker-systemd-recovery.md)へ進みます。

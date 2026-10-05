@@ -5,8 +5,6 @@ services:
     container_name: mydns-updater
     restart: unless-stopped
     volumes:
-      - ./update.sh:/app/update.sh:ro
-      - ./lib:/app/lib:ro
       - ./config:/config:ro
       - ./state:/state
     command: ["sh", "/app/update.sh"]

@@ -5,10 +5,19 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 PAGES = ['current-version', 'docker', 'synology', 'linux', 'docker-recovery',
          'docker-systemd-recovery', 'synology-recovery', 'linux-recovery',
-         'docker-testing', 'linux-testing']
+         'docker-testing', 'linux-testing', 'test-start', 'linux-monitor',
+         'linux-test-finish', 'docker-health-testing', 'synology-testing',
+         'synology-health-testing', 'docker-recovery-mock']
 
 def check(texts, version):
     errors = []
+    expected_branch = 'v1.11.0-image-package'
+    for page in ['current-version', 'docker', 'linux']:
+        if f'--branch {expected_branch} --single-branch' not in texts[f'docs/{page}.md']:
+            errors.append(f'{page}: acquisition branch differs from trial target')
+    for page in ['current-version', 'synology', 'synology-recovery']:
+        if f'refs/heads/{expected_branch}.zip' not in texts[f'docs/{page}.md']:
+            errors.append(f'{page}: acquisition ZIP differs from trial target')
     if 'まだmainにありません' in texts['README.md'] or 'review-fixes-v1.10.1ブランチを取得' in texts['README.md']:
         errors.append('README: stale unmerged instruction')
     for page in PAGES:

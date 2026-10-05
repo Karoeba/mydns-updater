@@ -1,7 +1,7 @@
 # Linuxで自動復帰を有効にする
 
-<!-- current-version: 1.10.1 -->
-対象版は **v1.10.1** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+<!-- current-version: 1.11.0 -->
+対象版は **v1.11.0** です。始める前に[取得する版の確認](current-version.md)を確認してください。
 
 この機能はv1.8.0で追加したLinux直接実行向けの機能です。初期状態では無効です。
 先に [Linux導入手順](linux.md) で通常の更新とヘルスチェックが動くことを確認してください。
@@ -10,7 +10,7 @@ DockerとSynology Container Managerの設定は、この手順では変更しま
 定期監視だけの機能は事前導入不要です。自動復帰自身が進行を確認します。
 
 **進む順番：** 導入済み確認 → 1 ファイル確認 → 2 配置 → 3 定期実行確認 → 4 自動復帰の試験。
-[Linuxの動作確認](linux-testing.md)から来た場合は、4-4まで終えたら同資料の手順4へ戻ります。
+開発中の試験は手順4の記録保存まで終え、[再起動確認・記録・試験終了](linux-test-finish.md)へ進みます。基本試験へ戻る操作はありません。
 通常運用の導入だけなら、手順3で登録を確認した後、手順4の試験を行うか選びます。
 
 ## どんなときに再起動するか
@@ -34,7 +34,7 @@ DockerとSynology Container Managerの設定は、この手順では変更しま
 
 履歴はrootだけが読み書きできる `/var/lib/mydns-updater-recovery/status` に保存します。
 アカウントの通知成功を記録する `state.conf` とは別です。
-v1.10.1から監視不能の診断だけを同じフォルダーのdiagnosticへ別保存します。従来のstatus形式と回数履歴は維持します。
+v1.11.0から監視不能の診断だけを同じフォルダーのdiagnosticへ別保存します。従来のstatus形式と回数履歴は維持します。
 確認できないときはPROBE_UNAVAILABLEと固定の原因コードを記録します。
 RECORD_UNAVAILABLEは記録欠落、RECORD_INVALIDは不正記録、PROCESS_UNAVAILABLEは対象処理を確認できない状態、PROBE_TIMEOUTは確認時間超過、PROBE_FAILEDは確認コマンドの失敗、PROBE_UNKNOWNは想定外の結果です。
 同じ原因は繰り返し表示せず、正常または所定の期限超過として判定できる状態へ戻るとPROBE_RECOVEREDを記録します。これはサービスの再起動成功を意味するRECOVEREDとは別です。
@@ -67,7 +67,7 @@ Docker版を導入していても、Linux直接実行版のサービスが用意
 
 ## 1. 配布ファイルを確認する
 
-以下はLinux側で実行します。v1.10.1はmainから取得できます。通常導入と同じ一式を使い、古い試験フォルダーを流用する場合は版を確認してください。
+以下はLinux側で実行します。v1.11.0は試験ブランチv1.11.0-image-packageから取得します。通常導入と同じ一式を使い、古い試験フォルダーを流用する場合は版を確認してください。
 展開したフォルダーの直下へ移動してから確認します。
 
 ```sh
@@ -76,7 +76,7 @@ ls update.sh lib/*.sh health-recover.sh deploy/linux/mydns-updater.service deplo
 grep '^VERSION=' update.sh
 ```
 
-5つのファイルとlib内の6ファイルが表示され、バージョンが `1.10.1` であることを確認します。
+5つのファイルとlib内の6ファイルが表示され、バージョンが `1.11.0` であることを確認します。
 `No such file or directory` が出た場合は、今いるフォルダーや取得した版を確認してください。
 
 ## 追加するファイルの配置
@@ -129,7 +129,7 @@ sudo -u mydns-updater env MYDNS_HEALTH_FILE=/run/mydns-updater/health sh /usr/lo
 ```
 
 ファイルの所有者・グループが `root root`、権限が `-rw-r--r--` であること、
-最新のSTARTUPが `v1.10.1`、サービスが `active (running)`、確認結果が `HEALTHY: updater progressing or waiting` であることを確認します。
+最新のSTARTUPが `v1.11.0`、サービスが `active (running)`、確認結果が `HEALTHY: updater progressing or waiting` であることを確認します。
 
 サービスの再起動操作には管理者権限が必要なため、自動復帰サービスはrootで動きます。
 更新処理とヘルスチェックの判定は、引き続き専用ユーザーで実行します。
@@ -223,11 +223,16 @@ sudo systemctl is-active mydns-updater-recovery.timer
 ```
 
 両方が引き続き `inactive` なら、この自動復帰試験は完了です。
-**Linuxの動作確認から来た場合は、停止した状態のまま[手順4](linux-testing.md#4-os再起動前に記録を保存する)へ戻ります。まだ元のDockerへ戻しません。**
-自動復帰だけを試していた場合は、続け方をどちらか選びます。
+次へ進む前に、今回の復帰記録を保存します。
 
-- **NASなどの運用に戻す：** Linux側は停止したまま、元の環境を起動します。
-- **Linux側で運用を続ける：** 同じアカウントの別環境を停止したまま、`sudo systemctl start mydns-updater` を実行します。
+```sh
+mkdir -p ~/mydns-test-results
+sudo journalctl -t mydns-updater-recovery -b --no-pager > ~/mydns-test-results/recovery.log
+grep -E 'RESTART_ATTEMPT|RECOVERED' ~/mydns-test-results/recovery.log
+```
+
+**成功：** 今回の時刻のRESTART_ATTEMPTと、その後のRECOVEREDが表示されます。
+次は[再起動確認・記録・試験終了](linux-test-finish.md)へ進みます。基本試験のページへは戻りません。
 
 **正常に完了した場合、以下のトラブル対応・制限解除・無効化は実行不要です。**
 

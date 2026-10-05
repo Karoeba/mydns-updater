@@ -6,6 +6,8 @@ services:
     image: mydns-updater-test:local
     network_mode: none
     restart: "no"
+    healthcheck:
+      disable: true
     volumes:
       - ./:/suite:ro
       - ../update.sh:/source/update.sh:ro

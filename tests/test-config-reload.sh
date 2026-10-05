@@ -69,8 +69,6 @@ write_config 0 86400
 CONTAINER="$(docker run -d --network none \
     --health-cmd="sh /app/update.sh --healthcheck" --health-interval=1s \
     --health-timeout=5s --health-retries=2 --health-start-period=2s --user "$(id -u):$(id -g)" \
-    -v "$ROOT/update.sh:/app/update.sh:ro" \
-    -v "$ROOT/lib:/app/lib:ro" \
     -v "$FIXTURE/config:/config:ro" \
     -v "$FIXTURE/state:/state" \
     -v "$FIXTURE/bin:/mock-bin:ro" \
