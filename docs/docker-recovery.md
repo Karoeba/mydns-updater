@@ -1,7 +1,7 @@
 # Dockerの自動復帰：共通の仕組み
 
 <!-- current-version: 1.11.0 -->
-対象版は **v1.11.0** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+対象版は **v1.11.0** です。始める前に[取得する版の確認](current-version.md)を確認してください。
 
 [資料一覧](README.md)
 
@@ -42,78 +42,12 @@ Dockerが表示するunhealthyをさらに3回数えるのではなく、毎回�
 
 ## 本番導入前に組み合わせを試す
 
-取得したv1.11.0の作業フォルダーで実行します。SynologyではNASへSSH接続した端末、UbuntuではUbuntu側の端末です。
-本番のconfigとstateをコピーする必要はありません。本番コンテナは動かしたままで構いません。
-
-```sh
-pwd
-ls -l update.sh lib/*.sh docker-health-recover.sh tests/test-docker-recovery-integration.sh
-```
-
-指定した3ファイルとlib内の6ファイルが表示されたら実行します。見つからない場合は先へ進まず、取得した版と作業場所を確認してください。
-
-```sh
-sudo sh tests/test-docker-recovery-integration.sh --disposable-test > recovery-integration.log 2>&1
-test_result=$?
-cat recovery-integration.log
-printf '\n試験の終了コード: %s\n' "$test_result"
-```
-
-試験専用コンテナを作り、期限超過から復帰・正常確認・手動停止・履歴解除まで試します。通常2〜3分です。
-試験用コンテナのネットワークは無効で、本番設定は読みません。終了時に試験用コンテナを削除します。
-
-```text
-ALL DOCKER RECOVERY INTEGRATION TESTS PASSED
-試験の終了コード: 0
-```
-
-この2行が成功の目印です。途中の `Container ... is restarting` だけでは失敗と判断しません。
-失敗した場合は導入を進めず、今回のログを確認します。
-この試験だけでは、DSMやsystemdからの定期実行を確認したことにはなりません。
+実行手順は[自動復帰の模擬試験](docker-recovery-mock.md)へ分けました。
+このページは条件・ログ・記録の共通説明です。
 
 ### この試験の記録はすでに保存されています
 
-上の試験コマンドは、実行した作業フォルダーに `recovery-integration.log` を自動で保存します。
-別の保存コマンドや、保存のための再試験は不要です。
-後から結果を見直したり、不具合を相談したりするときに使います。
-
-Synologyの手順どおりに配置した場合、保存先は次の場所です。
-
-```text
-File Station：docker → mydns-recovery-check → recovery-integration.log
-SSHでの場所：/volume1/docker/mydns-recovery-check/recovery-integration.log
-```
-
-Ubuntuなどでも、試験を実行したフォルダーの直下に同じ名前で保存されます。
-保存先が分からない場合だけ、試験した端末で次を実行します。
-
-```sh
-pwd
-ls -lh recovery-integration.log
-```
-
-pwdで作業フォルダーが表示され、その下にログの更新日時とサイズが出れば、ファイルを確認できています。
-ファイルが見つからない場合は、試験時の作業フォルダーへ戻って確認します。
-
-### Synologyで記録をPCへ保存する場合
-
-NAS内の記録をそのまま残すだけでも構いません。PCへ持ち帰る場合は次の操作を行います。
-
-1. DSMのFile Stationを開きます。
-2. 共有フォルダー `docker` → `mydns-recovery-check` を開きます。
-3. `recovery-integration.log` の更新日時が、今回の試験時刻になっていることを確認します。
-4. ファイルを右クリックし、「ダウンロード」を選びます。
-5. PCのダウンロード先でファイルを確認し、メモ帳などで開きます。
-
-成功時のログには `ALL DOCKER RECOVERY INTEGRATION TESTS PASSED` が含まれます。
-画面に表示した「試験の終了コード: 0」は、このログには含まれません。終了コードは試験直後の画面で確認します。
-同じ場所で再試験するとログは上書きされるため、前回分も残したい場合は先にダウンロードして名前を変えます。
-
-**この試験で保存する記録はrecovery-integration.logです。**
-後半に出てくるbefore.txt・after.txtなどは、実働コンテナでの自動復帰試験の記録です。
-今回の組み合わせ試験だけを終えた段階では、それらを用意する必要はありません。
-
-成功と記録を確認したら、[Synologyの手順](synology-recovery.md#通常運用のコンテナを確認する)または[通常のDockerの手順](docker-systemd-recovery.md)へ戻ります。
+保存先と見方は[模擬試験の記録](docker-recovery-mock.md#この試験の記録はすでに保存されています)にあります。
 
 ## ログの見方
 
@@ -230,7 +164,7 @@ homeが表示されない場合はユーザーホームサービスや権限も�
 ### Windowsのコマンドでコピーする場合
 
 以下は、実働コンテナの試験記録をフォルダーごとコピーする手順です。
-組み合わせ試験のrecovery-integration.logをSynologyから取得する場合は、[File Stationでダウンロード](#synologyで記録をpcへ保存する場合)できます。
+組み合わせ試験のrecovery-integration.logをSynologyから取得する場合は、[File Stationでダウンロード](docker-recovery-mock.md#synologyで記録をpcへ保存する場合)できます。
 
 各環境の手順で作ったmydns-recovery-resultsは、その端末のログインユーザーのホームにあります。
 SSH接続中のLinux画面で、Windows向けのコピーコマンドを実行しないでください。

@@ -14,6 +14,10 @@ Dockerを使わずに動かす [Linux直接実行版](docs/linux.md) も用意�
 
 ## 起動方法
 
+**開発版を試す場合は[新規導入からの試験コース](docs/test-start.md)から始めてください。**
+環境と試す機能を先に選び、模擬試験と実アカウントでの試験を順番に行います。
+
+
 | 使う環境 | 最初に読む手順 |
 | --- | --- |
 | Synology NASのContainer Manager | [Synologyでの導入・運用](docs/synology.md) |

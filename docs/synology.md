@@ -1,7 +1,7 @@
 # Synology Container Managerで使う
 
 <!-- current-version: 1.11.0 -->
-対象版は **v1.11.0** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+対象版は **v1.11.0** です。始める前に[取得する版の確認](current-version.md)を確認してください。
 
 [環境を選ぶ](../README.md#起動方法) ／ [資料一覧](README.md)
 
@@ -9,6 +9,9 @@ NAS本体のContainer Managerで使う手順です。NAS上のUbuntu VMにDocker
 設定項目とログの意味は[共通の説明](../README.md#設定ファイル)にまとめています。
 
 ## 目的に合わせて進む
+
+開発中は[試験コース](test-start.md)を先に選びます。このページは新規導入と最初の模擬試験です。
+
 
 | 目的 | 進む順番 |
 | --- | --- |
@@ -63,20 +66,87 @@ File Stationでは共有フォルダーdockerとして見えますが、SSHで�
 
 ## 2. 実アカウントを使わない模擬テスト
 
-**開発版の検証では実施します。通常導入だけなら手順3へ進めます。**
-[Container Managerでの模擬テスト](testing.md#synology-container-manager)を実行します。
-テスト用は別フォルダーに配置し、プロジェクト名も分けます。リンク先にZIPの配置と作成操作を記載しています。
+開発中の試験ではここを実施し、成功を確認してから手順3へ進みます。
 
-| 用途 | プロジェクト名 | プロジェクトのパス |
-| --- | --- | --- |
-| 模擬テスト | mydns-updater-test | /docker/mydns-recovery-check/tests |
-| 通常運用 | mydns-updater | /docker/mydns-updater |
 
-テスト用は実アカウントを使いません。本番用プロジェクトは、この後の手順4で作ります。
 
-終了コード0とALL TESTS PASSEDを確認したら、このページの手順3へ戻ります。
-模擬テストは終了するプログラムなので、最後にコンテナが停止するのは正常です。
-実アカウントは不要で、既存の運用も止める必要はありません。
+ここでは、模擬テスト用のプロジェクト名を **`mydns-updater-test`** に統一します。
+本番用の `mydns-updater` とは別に作ります。実アカウントの設定は不要です。
+
+### 2-1. PCでZIPを取得し、NASへ配置する
+
+1. [v1.11.0の試験用ZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.11.0-image-package.zip)をPCへダウンロードして展開します。
+2. 展開したフォルダーを開き、update.shがある階層まで進みます。update.sh・Dockerfile・lib・testsなどが入っています。
+3. File Stationで共有フォルダー `docker` を開き、その中に `mydns-recovery-check` フォルダーを作ります。
+4. 展開したフォルダーの**中身をすべて**、`docker/mydns-recovery-check` へアップロードします。
+5. NAS上の `mydns-recovery-check/tests` を開き、`reports` フォルダーがなければ作ります。
+
+この試験用一式は、後で自動復帰の模擬試験にも使います。
+同じ版をこの場所へ配置済みなら、再アップロードせず次の配置を確認します。
+以下は一部を抜粋した図です。図にないファイルも含め、一式を配置してください。
+
+```text
+docker/
+├── mydns-updater/                 ← 本番用。今回のアップロード先ではない
+└── mydns-recovery-check/          ← ZIPの中身を置く場所
+    ├── Dockerfile
+    ├── compose.yaml              ← 今回のプロジェクトでは選ばない
+    ├── update.sh
+    ├── lib/                      ← 6つの.shファイル
+    ├── docker-health-recover.sh
+    └── tests/                    ← 今回のプロジェクトのパス
+        ├── compose.yaml          ← 今回使うYAML
+        ├── entrypoint.sh
+        ├── その他のテスト用ファイル
+        └── reports/              ← 結果の保存先
+```
+
+**配置の確認：** mydns-recovery-checkを開くと、すぐにupdate.shとtestsが見える状態です。
+その間にZIPの展開フォルダーがもう1段入っていたら、中身を1段上へ移します。
+
+### 2-2. Container Managerでテスト用プロジェクトを作る
+
+1. Container Manager →「プロジェクト」→「作成」を開きます。
+2. 次の値を指定します。
+
+| 項目 | 指定する内容 |
+| --- | --- |
+| プロジェクト名 | `mydns-updater-test` |
+| パス | `/docker/mydns-recovery-check/tests` |
+| 使用するYAML | そのフォルダー内の `compose.yaml` |
+
+3. 配置済みのYAMLを使い、画面の案内に従って構築・開始します。
+4. 作成した `mydns-updater-test` のコンテナのログを開き、テストが終了するまで待ちます。
+
+同名のテスト用プロジェクトがすでにある場合は、そのパスが上記と一致するか確認します。
+一致する場合は新規作成せず、そのテスト用プロジェクトで構築・開始して今回の結果を確認します。
+異なる場合は既存プロジェクトを上書きせず、今回の名前を `mydns-updater-test-110` にして作成します。
+コンテナ名は自動で付くため、手入力する必要はありません。
+
+### 2-3. 結果を確認する
+
+File Stationで `docker/mydns-recovery-check/tests/reports` を開きます。
+以下のresult.txtとtest.logは、このフォルダー内のファイルです。
+
+**成功：** テスト用コンテナが終了コード0で停止し、reports/result.txtにALL TESTS PASSED、
+今回のtest.logに7種類の成功表示（次の一覧）があれば成功です。更新日時も今回の時刻になっていることを確認します。
+このコンテナが終了するのは正常で、運用コンテナのように動かし続けるものではありません。
+
+**失敗：** 終了コード0以外、TESTS FAILED、構築エラー、今回の記録がない場合は先へ進みません。
+コンテナのログとreports/test.logを確認します。古い成功記録だけで判断しません。
+
+成功時は次の7種類が表示されます。
+
+- ALL TESTS PASSED (37 checks)
+- ALL DIAGNOSTIC TESTS PASSED (20 checks)
+- ALL SPLIT CONFIG TESTS PASSED (10 checks)
+- ALL LINUX TESTS PASSED (8 checks)
+- ALL HEALTHCHECK TESTS PASSED (11 checks)
+- ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)
+- ALL PROGRAM LAYOUT TESTS PASSED
+
+ホスト側の4＋3項目はこの操作では実行されません。設定の上書き反映とContainer Managerでの健康状態の変化は、別途確認します。
+
 
 ## 3. 実アカウントの設定を用意する
 
@@ -134,29 +204,10 @@ Container Managerの「自動再起動」は、プロセス終了時の再起動
 **困ったときだけ：** コンテナの終了・異常表示、設定・認証エラーが出た場合は、ログを確認してから続けます。
 「正常」だけではMyDNS.JPへの通知成功を証明しません。設定した各アカウントの通知結果も確認します。
 
-## 6. 詳しい確認または通常運用へ進む
+## 6. 基本の導入は完了
 
-**通常運用だけの場合：** このまま使えます。自動復帰が必要なら[Synologyの自動復帰](synology-recovery.md)へ進みます。
-
-**開発版を検証する場合：** 次を順番に確認します。設定するのはFile Station上のconfig/mydns.confです。
-
-| 操作 | 成功の目印 |
-| --- | --- |
-| DEBUG=1へ変更して保存 | 次の周期からCHECK・SKIPなどの詳細ログが出る |
-| CHECK_INTERVAL=60へ変更して保存 | 次の周期以降、CHECKログが約1分間隔になる |
-| FORCE_UPDATE_INTERVAL=3600へ変更して保存 | 各アカウントの前回通知成功から1時間を過ぎた確認周期でMyDNS update: OKが出る |
-| 通知成功後にプロジェクトを停止・開始 | 新しいSTARTUPが出て「正常」になる。IP不変・期限前ならSKIP。stateは削除しない |
-
-変更前の待機時間は残るため、保存した直後に間隔が変わらない場合があります。
-すでに自動復帰を使っている場合は、停止・開始の確認前にDSMの該当タスクを一時的に無効にし、正常を確認してから再び有効にします。
-
-自動復帰も試す場合は、続いて[Synologyの自動復帰手順](synology-recovery.md)へ進みます。
-**その試験が終わるまでは、元の環境への切り戻しを行いません。**
-
-すべて終えた後は、次のどちらか1つを選びます。
-
-- 継続運用：試験用の設定を戻す。既定値はCHECK_INTERVAL=300、FORCE_UPDATE_INTERVAL=86400、DEBUG=0。
-- 試験終了：自動復帰のDSMタスクを使っていれば無効にして適用し、更新プロジェクトを停止してから元の環境を再開する。
+開発中の試験は、続いて[実アカウントでの基本試験](synology-testing.md)へ進みます。
+通常運用だけならこのまま使えます。以下は運用時の参照用で、試験の続きではありません。
 
 ## 設定を変更する場合
 

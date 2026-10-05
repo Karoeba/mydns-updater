@@ -13,7 +13,7 @@
 
 開発版の検証では両方を行います。通常導入では模擬テストは任意ですが、導入後の通知成功と正常状態は確認します。
 監視・自動復帰は通常動作の確認後、使う場合だけ追加します。
-詳しい操作は[Linux](linux.md)・[Docker](docker.md)・[Container Manager](synology.md)の入口から進めます。
+開発中の試験は[新規導入からの試験コース](test-start.md)で、環境と機能を最初に選びます。
 
 **合否の読み方：** 模擬テストには、故意にエラーを起こす項目があります。
 途中のERRORなどではなく、各テストの成功表示と、テストコマンド全体の終了コード0を確認します。
@@ -56,137 +56,21 @@ v1.9.0ではDocker 24.0.2とCIランナーのDockerで、実際の監視スク�
 
 ## 手元の環境で模擬テストを実行する
 
-GitHubからダウンロードしたコードを、導入先でも模擬テストできます。実アカウントは使いません。
-
-**以下の3つから、試す環境の節を1つ選んで進めます。** Dockerのコマンドライン・Synology Container Manager・Linux直接実行を、順番にすべて行う手順ではありません。
+具体的なコマンドと成功表示は、取得・導入手順にまとめました。
+[試験コース](test-start.md)から始めれば、取得から実通知まで順番に進められます。
 
 ### Dockerのコマンドライン
 
-展開したフォルダーの直下（ルートの `compose.yaml` がある場所）で実行します。Dockerへアクセスできる権限が必要です。Ubuntuの新規導入では `docker` コマンドの先頭に `sudo` を付けます。
-
-```sh
-mkdir -p tests/reports
-sudo docker compose -f tests/compose.yaml run --build --rm test
-test_result=$?
-printf '模擬テストの終了コード: %s\n' "$test_result"
-```
-
-模擬テスト中の外部通信は無効です。初回のイメージ取得など、構築には接続が必要です。
-
-結果は `tests/reports` に保存され、成功時は次の7種類の結果を表示して終了します。
-
-- `ALL TESTS PASSED (37 checks)`
-- `ALL DIAGNOSTIC TESTS PASSED (20 checks)`
-- `ALL SPLIT CONFIG TESTS PASSED (10 checks)`
-- `ALL LINUX TESTS PASSED (8 checks)`
-- `ALL HEALTHCHECK TESTS PASSED (11 checks)`
-- `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`
-- `ALL PROGRAM LAYOUT TESTS PASSED`
-
-終了コード0と、7種類すべての最後の結果を確認してください。同じ成功表示が複数回出ても正常です。
-実行中はログをファイルへためているため、しばらく表示が増えない場合があります。入力待ちへ戻るまで待ちます。`tests/reports/result.txt` の `ALL TESTS PASSED` も成功の目印です。構築エラー時に古いレポートが残っている場合があるため、今回の端末表示とファイルの更新日時も確認します。
-
-LinuxのDockerホストでは、設定の置き換え4項目とDockerの健康状態遷移3項目も追加で実行できます。
-
-```sh
-sudo sh tests/test-config-reload.sh
-test_result=$?
-printf '追加テストの終了コード: %s\n' "$test_result"
-```
-
-終了コード0で、成功時は `ALL CONFIG RELOAD TESTS PASSED (4 checks)` と `ALL DOCKER HEALTHCHECK TESTS PASSED (3 checks)` を表示します。実アカウントは使用しません。ヘルスチェックの待機・検査間隔を短縮し、期限切れも模擬的に作る試験です。
+[Docker導入の手順2](docker.md#2-実アカウントを使わない模擬テスト)を使います。
 
 ### Synology Container Manager
 
-ここでは、模擬テスト用のプロジェクト名を **`mydns-updater-test`** に統一します。
-本番用の `mydns-updater` とは別に作ります。実アカウントの設定は不要です。
-
-#### 1. PCでZIPを取得し、NASへ配置する
-
-1. [v1.11.0の試験用ZIP](https://github.com/Karoeba/mydns-updater/archive/refs/heads/v1.11.0-image-package.zip)をPCへダウンロードして展開します。
-2. 展開したフォルダーを開き、update.shがある階層まで進みます。update.sh・Dockerfile・lib・testsなどが入っています。
-3. File Stationで共有フォルダー `docker` を開き、その中に `mydns-recovery-check` フォルダーを作ります。
-4. 展開したフォルダーの**中身をすべて**、`docker/mydns-recovery-check` へアップロードします。
-5. NAS上の `mydns-recovery-check/tests` を開き、`reports` フォルダーがなければ作ります。
-
-この試験用一式は、後で自動復帰の模擬試験にも使います。
-同じ版をこの場所へ配置済みなら、再アップロードせず次の配置を確認します。
-以下は一部を抜粋した図です。図にないファイルも含め、一式を配置してください。
-
-```text
-docker/
-├── mydns-updater/                 ← 本番用。今回のアップロード先ではない
-└── mydns-recovery-check/          ← ZIPの中身を置く場所
-    ├── Dockerfile
-    ├── compose.yaml              ← 今回のプロジェクトでは選ばない
-    ├── update.sh
-    ├── lib/                      ← 6つの.shファイル
-    ├── docker-health-recover.sh
-    └── tests/                    ← 今回のプロジェクトのパス
-        ├── compose.yaml          ← 今回使うYAML
-        ├── entrypoint.sh
-        ├── その他のテスト用ファイル
-        └── reports/              ← 結果の保存先
-```
-
-**配置の確認：** mydns-recovery-checkを開くと、すぐにupdate.shとtestsが見える状態です。
-その間にZIPの展開フォルダーがもう1段入っていたら、中身を1段上へ移します。
-
-#### 2. Container Managerでテスト用プロジェクトを作る
-
-1. Container Manager →「プロジェクト」→「作成」を開きます。
-2. 次の値を指定します。
-
-| 項目 | 指定する内容 |
-| --- | --- |
-| プロジェクト名 | `mydns-updater-test` |
-| パス | `/docker/mydns-recovery-check/tests` |
-| 使用するYAML | そのフォルダー内の `compose.yaml` |
-
-3. 配置済みのYAMLを使い、画面の案内に従って構築・開始します。
-4. 作成した `mydns-updater-test` のコンテナのログを開き、テストが終了するまで待ちます。
-
-同名のテスト用プロジェクトがすでにある場合は、そのパスが上記と一致するか確認します。
-一致する場合は新規作成せず、そのテスト用プロジェクトで構築・開始して今回の結果を確認します。
-異なる場合は既存プロジェクトを上書きせず、今回の名前を `mydns-updater-test-110` にして作成します。
-コンテナ名は自動で付くため、手入力する必要はありません。
-
-#### 3. 結果を確認して導入手順へ戻る
-
-File Stationで `docker/mydns-recovery-check/tests/reports` を開きます。
-以下のresult.txtとtest.logは、このフォルダー内のファイルです。
-
-**成功：** テスト用コンテナが終了コード0で停止し、reports/result.txtにALL TESTS PASSED、
-今回のtest.logに上記7種類の成功表示があれば成功です。更新日時も今回の時刻になっていることを確認します。
-このコンテナが終了するのは正常で、運用コンテナのように動かし続けるものではありません。
-
-**失敗：** 終了コード0以外、TESTS FAILED、構築エラー、今回の記録がない場合は先へ進みません。
-コンテナのログとreports/test.logを確認します。古い成功記録だけで判断しません。
-
-成功時の表示は上記のDockerテストと同じです。ホスト側の4＋3項目はこの操作では実行されません。設定の上書き反映とContainer Managerでの健康状態の変化は、別途確認します。
-
-成功したら、[Synology導入手順の「3. 実アカウントの設定を用意する」](synology.md#3-実アカウントの設定を用意する)へ戻ります。
-既存環境を更新するために試した場合は、[更新手順](synology.md#更新する場合)へ進みます。
+[Synology導入の手順2](synology.md#2-実アカウントを使わない模擬テスト)を使います。プロジェクト名・配置・成功表示も記載しています。
 
 ### Linux直接実行
 
-展開したフォルダーの直下で実行します。
-
-```sh
-sh tests/test-program-layout.sh &&
-sh tests/test-linux.sh &&
-sh tests/test-healthcheck-linux.sh &&
-sh tests/test-health-monitor.sh &&
-sh tests/test-health-recovery.sh
-test_result=$?
-printf '模擬テストの終了コード: %s\n' "$test_result"
-```
-
-`ALL PROGRAM LAYOUT TESTS PASSED`、`ALL LINUX TESTS PASSED (8 checks)` と `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`、`ALL MONITOR TESTS PASSED (13 checks)` に加え、`ALL RECOVERY TESTS PASSED (18 checks)` がすべて出て、終了コード0なら成功です。一時ディレクトリ内で模擬通信を使用し、実アカウントや既存設定には触れません。
-
-必要なソフトの準備は [Linux導入手順](linux.md) を参照してください。監視テストにはutil-linuxのflockとcoreutilsのtimeoutを使います。
-
-`tests/test-monitor-systemd.sh` と `tests/test-recovery-systemd.sh` は使い捨てのGitHub Actions環境専用です。導入先で実行せず、タイマーの確認にはLinux導入手順を使用してください。
+[Linux導入の手順2](linux.md#2-実アカウントを使わない模擬テスト)を使います。
+tests/test-monitor-systemd.shとtests/test-recovery-systemd.shは使い捨てCI専用です。導入先では実行しません。
 
 ## 導入先で実際の動作を確認する
 

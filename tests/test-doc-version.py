@@ -5,7 +5,9 @@ import re
 ROOT = Path(__file__).resolve().parents[1]
 PAGES = ['current-version', 'docker', 'synology', 'linux', 'docker-recovery',
          'docker-systemd-recovery', 'synology-recovery', 'linux-recovery',
-         'docker-testing', 'linux-testing']
+         'docker-testing', 'linux-testing', 'test-start', 'linux-monitor',
+         'linux-test-finish', 'docker-health-testing', 'synology-testing',
+         'synology-health-testing', 'docker-recovery-mock']
 
 def check(texts, version):
     errors = []

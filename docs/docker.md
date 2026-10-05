@@ -1,7 +1,7 @@
 # 通常のDocker・Composeで使う
 
 <!-- current-version: 1.11.0 -->
-対象版は **v1.11.0** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+対象版は **v1.11.0** です。始める前に[取得する版の確認](current-version.md)を確認してください。
 
 [環境を選ぶ](../README.md#起動方法) ／ [資料一覧](README.md)
 
@@ -12,6 +12,9 @@ NAS本体のContainer Managerで使う場合は[Synologyの手順](synology.md)�
 Docker未導入なら、先に[UbuntuへのDocker導入](reference/ubuntu-docker.md)を行います。
 
 ## 目的に合わせて進む
+
+開発中は[試験コース](test-start.md)を先に選びます。このページは新規導入と最初の模擬試験です。
+
 
 | 目的 | 進む順番 |
 | --- | --- |
@@ -62,6 +65,9 @@ v1.11.0-image-packageのプログラム一式を、新しい作業フォルダ�
 同名フォルダーがすでにある場合は取得を繰り返さず、中身を確認します。
 
 ```sh
+sudo apt update
+sudo apt install git nano
+cd ~
 git clone --branch v1.11.0-image-package --single-branch https://github.com/Karoeba/mydns-updater.git mydns-updater-docker
 cd mydns-updater-docker
 pwd
@@ -91,10 +97,44 @@ ls compose.yaml
 
 ## 2. 実アカウントを使わない模擬テスト
 
-**開発版の検証では実施します。通常導入だけなら手順3へ進めます。**
-[Dockerの模擬テスト](testing.md#dockerのコマンドライン)を実行します。
-そのページの「終了コード0」と「ALL TESTS PASSED」を確認できたら、このページの手順3へ戻ります。
-実アカウントや本番のconfig・stateは使いません。NAS側の運用も止める必要はありません。
+開発中の試験ではここを実施し、成功を確認してから手順3へ進みます。
+
+
+
+展開したフォルダーの直下（ルートの `compose.yaml` がある場所）で実行します。Dockerへアクセスできる権限が必要です。Ubuntuの新規導入では `docker` コマンドの先頭に `sudo` を付けます。
+
+```sh
+mkdir -p tests/reports
+sudo docker compose -f tests/compose.yaml run --build --rm test
+test_result=$?
+printf '模擬テストの終了コード: %s\n' "$test_result"
+```
+
+模擬テスト中の外部通信は無効です。初回のイメージ取得など、構築には接続が必要です。
+
+結果は `tests/reports` に保存され、成功時は次の7種類の結果を表示して終了します。
+
+- `ALL TESTS PASSED (37 checks)`
+- `ALL DIAGNOSTIC TESTS PASSED (20 checks)`
+- `ALL SPLIT CONFIG TESTS PASSED (10 checks)`
+- `ALL LINUX TESTS PASSED (8 checks)`
+- `ALL HEALTHCHECK TESTS PASSED (11 checks)`
+- `ALL LINUX HEALTHCHECK TESTS PASSED (7 checks)`
+- `ALL PROGRAM LAYOUT TESTS PASSED`
+
+終了コード0と、7種類すべての最後の結果を確認してください。同じ成功表示が複数回出ても正常です。
+実行中はログをファイルへためているため、しばらく表示が増えない場合があります。入力待ちへ戻るまで待ちます。`tests/reports/result.txt` の `ALL TESTS PASSED` も成功の目印です。構築エラー時に古いレポートが残っている場合があるため、今回の端末表示とファイルの更新日時も確認します。
+
+LinuxのDockerホストでは、設定の置き換え4項目とDockerの健康状態遷移3項目も追加で実行できます。
+
+```sh
+sudo sh tests/test-config-reload.sh
+test_result=$?
+printf '追加テストの終了コード: %s\n' "$test_result"
+```
+
+終了コード0で、成功時は `ALL CONFIG RELOAD TESTS PASSED (4 checks)` と `ALL DOCKER HEALTHCHECK TESTS PASSED (3 checks)` を表示します。実アカウントは使用しません。ヘルスチェックの待機・検査間隔を短縮し、期限切れも模擬的に作る試験です。
+
 
 ## 3. 実アカウントの設定を用意する
 
@@ -210,7 +250,7 @@ v1.10.1以前からはプログラムのマウント削除、v1.11.0以降も毎
 
 ## 詳しい動作確認と自動復帰
 
-通常動作・設定変更・異常表示を詳しく試す場合は[Dockerの動作確認](docker-testing.md)へ進みます。
+開発中の試験の順番は[試験コース](test-start.md)にまとめています。
 導入済みの設定を引き継ぎます。取得や初回設定のコピーを繰り返しません。
 
 自動復帰を使う場合は[通常のDockerの自動復帰手順](docker-systemd-recovery.md)へ進みます。

@@ -1,7 +1,7 @@
 # Linuxで自動復帰を有効にする
 
 <!-- current-version: 1.11.0 -->
-対象版は **v1.11.0** です。始める前に[取得する版と更新時の確認](current-version.md)を確認してください。
+対象版は **v1.11.0** です。始める前に[取得する版の確認](current-version.md)を確認してください。
 
 この機能はv1.8.0で追加したLinux直接実行向けの機能です。初期状態では無効です。
 先に [Linux導入手順](linux.md) で通常の更新とヘルスチェックが動くことを確認してください。
@@ -223,11 +223,16 @@ sudo systemctl is-active mydns-updater-recovery.timer
 ```
 
 両方が引き続き `inactive` なら、この自動復帰試験は完了です。
-**Linuxの動作確認から来た場合は、停止した状態のまま[手順4](linux-testing.md#4-os再起動前に記録を保存する)へ戻ります。まだ元のDockerへ戻しません。**
-自動復帰だけを試していた場合は、続け方をどちらか選びます。
+次へ進む前に、今回の復帰記録を保存します。
 
-- **NASなどの運用に戻す：** Linux側は停止したまま、元の環境を起動します。
-- **Linux側で運用を続ける：** 同じアカウントの別環境を停止したまま、`sudo systemctl start mydns-updater` を実行します。
+```sh
+mkdir -p ~/mydns-test-results
+sudo journalctl -t mydns-updater-recovery -b --no-pager > ~/mydns-test-results/recovery.log
+grep -E 'RESTART_ATTEMPT|RECOVERED' ~/mydns-test-results/recovery.log
+```
+
+**成功：** 今回の時刻のRESTART_ATTEMPTと、その後のRECOVEREDが表示されます。
+次は[再起動確認・記録・試験終了](linux-test-finish.md)へ進みます。基本試験のページへは戻りません。
 
 **正常に完了した場合、以下のトラブル対応・制限解除・無効化は実行不要です。**
 
