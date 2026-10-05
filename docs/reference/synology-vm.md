@@ -128,8 +128,8 @@ sudo systemctl enable --now ssh
 
 ## 次に進む
 
-Ubuntuへ接続できたら、試す方法を選びます。Docker版を試す場合は [UbuntuへのDocker導入](ubuntu-docker.md) へ進み、その後 [Dockerの動作確認](../docker-testing.md) を行います。
+Ubuntuへ接続できたら、試す方法を選びます。Docker版を試す場合は [UbuntuへのDocker導入](ubuntu-docker.md) へ進み、その後[試験コース](../test-start.md)のD1またはD2を新規導入から行います。
 
 Dockerを使わないLinux直接実行版は、[Linux導入手順](../linux.md) の「必要なソフトを準備する」から進めます。コマンドはUbuntu側で実行し、NAS本体のSSH画面には入力しません。
 
-導入後は [Linuxの動作確認手順](../linux-testing.md) で通知・監視・再起動後の動作を確認できます。VMの構築だけなら、ここで中断して構いません。
+Linux直接実行の試験は[試験コース](../test-start.md)のL1・L2・L0から選び、新規導入から進めます。VMの構築だけなら、ここで中断して構いません。

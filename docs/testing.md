@@ -87,11 +87,9 @@ tests/test-monitor-systemd.shとtests/test-recovery-systemd.shは使い捨てCI�
 
 `DEBUG=1` にすると確認周期とスキップ理由も表示されます。Linuxではサービスの常駐動作と、必要に応じてOS再起動後の自動起動も確認してください。
 
-UbuntuのDockerコマンドラインで導入から試す場合は [Dockerの動作確認手順](docker-testing.md) を参照してください。Dockerの導入準備、実アカウントの切り替え、通常設定での異常・復旧と記録方法を説明しています。
+導入から試す場合は[新規導入からの試験コース](test-start.md)を使います。基本試験と、監視のみ・自動復帰の専用試験を分けています。コースの最後に記録を保存して終了します。
 
-Linuxでの異常・復旧、停止連動、OS再起動、結果保存は [Linuxの動作確認手順](linux-testing.md) を参照してください。
-
-現行導入資料の対象版と成功判定は `python3 tests/test-doc-version.py` で検査します。update.shのVERSIONと照合し、過去の検証記録・変更履歴は対象外にします。CIの文書シェル構文検査と合わせて実行します。
+現行導入資料の対象版と成功判定は `python3 tests/test-doc-version.py` で検査します。update.shのVERSIONと照合し、過去の検証記録・変更履歴は対象外にします。リンク先・見出し・コード枠は `python3 tests/test-doc-links.py` で検査します。CIの文書シェル構文検査と合わせて実行します。
 
 ### v1.11.0の確認範囲
 
