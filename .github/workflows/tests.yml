@@ -23,6 +23,17 @@ jobs:
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           persist-credentials: false
+      - name: Enforce validation-only artifact policy
+        shell: bash
+        run: |
+          python3 - <<'POLICY_PY'
+          from pathlib import Path
+          source = Path('.github/workflows/tests.yml').read_text()
+          action = 'actions/' + 'upload-artifact'
+          if action in source.lower():
+              raise SystemExit('Validation workflow must not contain a persistent artifact upload action')
+          print('PASS: this validation workflow has no persistent artifact upload action')
+          POLICY_PY
 
       - name: Run mock tests
         run: |
@@ -48,18 +59,30 @@ jobs:
           test "$result" -eq 7
           grep -Fxq intentional-test-failure tests/reports/pipefail.log
 
-      - name: Save test reports
+      - name: Record test reports without artifact storage
         if: always()
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: test-reports
-          path: |
-            tests/reports/test.log
-            tests/reports/result.txt
-            tests/reports/config-reload.log
-          if-no-files-found: warn
-          retention-days: 14
-
+        shell: bash
+        env:
+          VALIDATION_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          {
+            printf '### Validation reports\n\n'
+            printf -- '- Commit: `%s`\n' "$GITHUB_SHA"
+            printf -- '- Run: `%s`, attempt `%s`\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT"
+            printf -- '- Job status before report capture: `%s`\n' "$VALIDATION_STATUS"
+            printf -- '- Persistent artifact upload: disabled. Reports are in the job log.\n'
+          } >> "$GITHUB_STEP_SUMMARY"
+          for report in tests/reports/test.log tests/reports/result.txt tests/reports/config-reload.log; do
+            if test -f "$report"; then
+              printf '\nReport: %s\n' "$report"
+              cat -- "$report"
+              printf '\n'
+              sha256sum -- "$report" | tee -a "$GITHUB_STEP_SUMMARY"
+            else
+              printf 'Report unavailable: %s\n' "$report" | tee -a "$GITHUB_STEP_SUMMARY"
+            fi
+          done
       - name: Clean up test containers
         if: always()
         run: docker compose -f tests/compose.yaml down
